@@ -1,3 +1,4 @@
+import { daysUntil } from '../lib/dates';
 import {
   GRAIN,
   GRAIN_TEMPLATES,
@@ -39,13 +40,19 @@ export function allowed(item: ReelItem, list: ReelItem[], diets: DietRule[]): bo
   return true;
 }
 
+export function daysLeft(item: PantryItem): number {
+  return daysUntil(item.expiresOn);
+}
+
 export function weightOf(item: ReelItem, ctx: PickContext): number {
   const stocked = pantryOf(ctx.pantry, item.name);
   if (!ctx.weighting) return stocked ? 1.4 : 1;
   if (!stocked) return 0.7;
-  if (stocked.days <= 2) return 6;
-  if (stocked.days <= 4) return 3;
-  if (stocked.days <= 10) return 1.6;
+
+  const left = daysLeft(stocked);
+  if (left <= 2) return 6;
+  if (left <= 4) return 3;
+  if (left <= 10) return 1.6;
   return 1;
 }
 

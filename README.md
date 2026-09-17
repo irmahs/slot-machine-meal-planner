@@ -27,11 +27,18 @@ draw, each unlocked reel picks a target by weight, then travels four full turns 
 turn per reel for stagger, over `1.50s / 1.92s / 2.34s`. At `2500ms` everything snaps back onto
 the payline and the result is published. Locked reels keep whatever is already on their payline.
 
-**The weighting.** With expiry weighting on, an item in the pantry with two days left is worth
-`6` against a well-stocked item's `1` — about four times as likely to come up. Items not in the
-pantry are worth `0.7`, so the reels lean towards what you already have without ever excluding a
-shopping trip. Diet constraints filter the list before the weighted pick; if a filter empties a
-list, the unfiltered list is used rather than failing.
+**The weighting.** A pantry item stores the date it goes off, and days remaining are derived from
+that date every time they are read — so a fridge left alone for a week comes back a week more
+urgent. With weighting on, an item with two days left is worth `6` against a well-stocked item's
+`1` — about four times as likely to come up. Items not in the pantry are worth `0.7`, so the reels
+lean towards what you already have without ever excluding a shopping trip. Diet constraints filter
+the list before the weighted pick; if a filter empties a list, the unfiltered list is used rather
+than failing.
+
+**What the reels hold.** The three reels are a fixed catalogue of six ingredients each, defined in
+`src/data/seed.ts` — not a view of your fridge. That is deliberate: the reels can offer something
+you have to buy, and what is in the fridge changes the odds rather than the options. Each cell
+shows its own status, so `need to buy` sits under an ingredient you do not have.
 
 **The dish name.** Composed from the three picks rather than looked up — a carb template
 (`Jasmine Rice → "{Protein} Rice Bowl"`) joined to a veg phrase (`Broccoli → "charred broccoli"`).
@@ -83,7 +90,7 @@ the data follows the account even if the address changes.
 | --- | --- | --- |
 | `meal_planner_units` | `id`, `code`, `label` | The unit enum — piece, g, kg, ml, l, bag, block, pack, bunch, can. Shared reference data, not per user. |
 | `meal_planner_ingredients` | `id`, `user_id`, `name` | Every ingredient named once. The other tables point at it, so "Broccoli" is one thing everywhere. |
-| `meal_planner_pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `date_expiration` | What's in the fridge. The reels draw from it and weight by how close `date_expiration` is. |
+| `meal_planner_pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `date_expiration` | What's in the fridge. `date_expiration` is picked on a date input and is what the reels weight by. |
 | `meal_planner_history` | `id`, `user_id`, `name_meal`, `note`, `date_cooked` | One row per dish sent into the pot. Drives the Cooked screen and its two stat cards. |
 | `meal_planner_history_ingredients` | `id_history`, `id_ingredient` | Which three ingredients a meal was drawn from. Separate table because a meal has three, not one. |
 | `meal_planner_shopping_list` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `acquired` | What to buy, and whether it has been bought. |

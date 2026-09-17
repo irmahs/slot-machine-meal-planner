@@ -10,12 +10,12 @@ export function addDaysISO(days: number, from: Date = new Date()): string {
   return toISO(date);
 }
 
-/** Days remaining, floored at 1 so an overdue item reads as "use today" rather than a negative. */
+/** Whole days from today to that date: 0 is today, negative is overdue. */
 export function daysUntil(iso: string): number {
   const target = new Date(`${iso}T00:00:00`);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  return Math.max(1, Math.round((target.getTime() - start.getTime()) / DAY_MS));
+  return Math.round((target.getTime() - start.getTime()) / DAY_MS);
 }
 
 export function dayLabel(iso: string): string {

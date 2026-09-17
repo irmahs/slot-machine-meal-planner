@@ -11,7 +11,8 @@ export interface ReelItem {
 
 export interface PantryItem {
   name: string;
-  days: number;
+  /** The last day it is good for, as an ISO date. Days remaining are derived from it. */
+  expiresOn: string;
   qty: number;
   unit: UnitCode;
 }
@@ -89,14 +90,14 @@ export const SINGULAR: Record<string, string> = {
 };
 
 export const SEED_PANTRY: PantryItem[] = [
-  { name: 'Chicken Thighs', days: 2, qty: 600, unit: 'g' },
-  { name: 'Baby Spinach', days: 1, qty: 1, unit: 'bag' },
-  { name: 'Zucchini', days: 3, qty: 2, unit: 'piece' },
-  { name: 'Jasmine Rice', days: 90, qty: 1.5, unit: 'kg' },
-  { name: 'Eggs', days: 9, qty: 8, unit: 'piece' },
-  { name: 'Mushrooms', days: 4, qty: 250, unit: 'g' },
-  { name: 'Corn Tortillas', days: 12, qty: 10, unit: 'piece' },
-  { name: 'Firm Tofu', days: 6, qty: 1, unit: 'block' },
+  { name: 'Chicken Thighs', expiresOn: addDaysISO(2), qty: 600, unit: 'g' },
+  { name: 'Baby Spinach', expiresOn: addDaysISO(1), qty: 1, unit: 'bag' },
+  { name: 'Zucchini', expiresOn: addDaysISO(3), qty: 2, unit: 'piece' },
+  { name: 'Jasmine Rice', expiresOn: addDaysISO(90), qty: 1.5, unit: 'kg' },
+  { name: 'Eggs', expiresOn: addDaysISO(9), qty: 8, unit: 'piece' },
+  { name: 'Mushrooms', expiresOn: addDaysISO(4), qty: 250, unit: 'g' },
+  { name: 'Corn Tortillas', expiresOn: addDaysISO(12), qty: 10, unit: 'piece' },
+  { name: 'Firm Tofu', expiresOn: addDaysISO(6), qty: 1, unit: 'block' },
 ];
 
 export function seedPlan(): PlanEntry[] {

@@ -7,7 +7,7 @@ import {
   type PlanEntry,
 } from '../data/seed';
 import { DEFAULT_UNIT, type UnitCode } from '../data/units';
-import { todayISO } from '../lib/dates';
+import { addDaysISO, todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
 import { dishName, pantryOf, pickedNames, settleIdx, type DietRule, type SpinPlan, type Triple } from '../engine/reel';
 
@@ -29,7 +29,8 @@ export interface PlannerState {
   repeatDays: RepeatWindow;
   weighting: boolean;
   draftName: string;
-  draftDays: number;
+  /** ISO date the new item goes off, straight from the picker. */
+  draftExpiry: string;
   /** Kept as typed text so the field can be empty or half-written; parsed when the item is added. */
   draftQty: string;
   draftUnit: UnitCode;
@@ -54,7 +55,7 @@ export function createInitialState(): PlannerState {
     repeatDays: 7,
     weighting: true,
     draftName: '',
-    draftDays: 5,
+    draftExpiry: addDaysISO(DEFAULT_WINDOW),
     draftQty: '1',
     draftUnit: DEFAULT_UNIT,
     draftGroc: '',
@@ -80,7 +81,7 @@ export type Action =
   | { type: 'spin/settle'; targets: Triple<number> }
   | { type: 'dish/cook' }
   | { type: 'pantry/draftName'; value: string }
-  | { type: 'pantry/stepDays'; delta: number }
+  | { type: 'pantry/draftExpiry'; value: string }
   | { type: 'pantry/draftQty'; value: string }
   | { type: 'pantry/draftUnit'; unit: UnitCode }
   | { type: 'pantry/add' }
@@ -96,13 +97,20 @@ export type Action =
   | { type: 'rules/repeatDays'; days: RepeatWindow }
   | { type: 'rules/toggleWeighting' };
 
+/** Refreshing a window never brings an expiry date forward. */
+function laterOf(expiresOn: string, days: number): string {
+  const refreshed = addDaysISO(days);
+  return expiresOn > refreshed ? expiresOn : refreshed;
+}
+
 /** A blank or nonsense entry means one of the thing, not NaN. */
 function parseQuantity(typed: string): number {
   const value = Number(typed);
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
-const DEFAULT_DRAFT_DAYS = 5;
+/** How far ahead the date picker starts, and the windows the app sets on your behalf. */
+const DEFAULT_WINDOW = 5;
 const STOCKED_WINDOW = 6;
 const COOKED_WINDOW = 14;
 
@@ -166,7 +174,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           ...state.plan,
         ],
         pantry: state.pantry.map((item) =>
-          names.includes(item.name) ? { ...item, days: Math.max(item.days, COOKED_WINDOW) } : item,
+          names.includes(item.name) ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) } : item,
         ),
         grocery: [
           ...state.grocery,
@@ -180,8 +188,8 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'pantry/draftName':
       return { ...state, draftName: action.value };
 
-    case 'pantry/stepDays':
-      return { ...state, draftDays: Math.min(90, Math.max(1, state.draftDays + action.delta)) };
+    case 'pantry/draftExpiry':
+      return { ...state, draftExpiry: action.value };
 
     case 'pantry/draftQty':
       return { ...state, draftQty: action.value };
@@ -195,12 +203,17 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       return {
         ...state,
         pantry: [
-          { name, days: state.draftDays, qty: parseQuantity(state.draftQty), unit: state.draftUnit },
+          {
+            name,
+            expiresOn: state.draftExpiry,
+            qty: parseQuantity(state.draftQty),
+            unit: state.draftUnit,
+          },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name.toLowerCase() !== name.toLowerCase()),
         draftName: '',
-        draftDays: DEFAULT_DRAFT_DAYS,
+        draftExpiry: addDaysISO(DEFAULT_WINDOW),
         draftQty: '1',
         draftUnit: DEFAULT_UNIT,
       };
@@ -254,7 +267,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         pantry: [
           {
             name: action.name,
-            days: STOCKED_WINDOW,
+            expiresOn: addDaysISO(STOCKED_WINDOW),
             qty: bought?.qty ?? 1,
             unit: bought?.unit ?? DEFAULT_UNIT,
           },

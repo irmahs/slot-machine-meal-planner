@@ -1,6 +1,5 @@
 import type { GroceryItem, PantryItem, PlanEntry } from '../data/seed';
 import { DEFAULT_UNIT, type UnitCode } from '../data/units';
-import { addDaysISO, daysUntil } from './dates';
 import { supabase } from './supabase/client';
 
 export interface Snapshot {
@@ -140,7 +139,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
         ? [
             {
               name,
-              days: daysUntil(row.date_expiration),
+              expiresOn: row.date_expiration,
               qty: Number(row.quantity),
               unit: codeOf.get(row.id_unit) ?? DEFAULT_UNIT,
             },
@@ -187,7 +186,10 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
   const pantryUpserts = next.pantry.filter((item) => {
     const before = prev.pantry.find((p) => p.name === item.name);
     return (
-      !before || before.days !== item.days || before.qty !== item.qty || before.unit !== item.unit
+      !before ||
+      before.expiresOn !== item.expiresOn ||
+      before.qty !== item.qty ||
+      before.unit !== item.unit
     );
   });
   const groceryUpserts = next.grocery.filter((item) => {
@@ -222,7 +224,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
                   id_ingredient: id,
                   quantity: item.qty,
                   id_unit: unitId.get(item.unit),
-                  date_expiration: addDaysISO(item.days),
+                  date_expiration: item.expiresOn,
                 },
               ]
             : [];

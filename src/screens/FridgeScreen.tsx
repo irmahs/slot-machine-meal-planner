@@ -1,5 +1,7 @@
 import type { Dispatch } from 'react';
 import type { PantryItem } from '../data/seed';
+import { daysLeft } from '../engine/reel';
+import { todayISO } from '../lib/dates';
 import QuantityField from '../components/QuantityField';
 import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
@@ -13,22 +15,26 @@ interface FridgeScreenProps {
 type Window = 'soon' | 'fresh' | 'stocked';
 
 function windowOf(item: PantryItem): Window {
-  if (item.days <= 3) return 'soon';
-  if (item.days <= 10) return 'fresh';
+  const left = daysLeft(item);
+  if (left <= 3) return 'soon';
+  if (left <= 10) return 'fresh';
   return 'stocked';
 }
 
 function subFor(item: PantryItem): string {
   const count = formatQuantity(item.qty, item.unit);
-  if (item.days > 30) return `${count} · keeps for months`;
-  if (item.days === 1) return `${count} · use today`;
-  return `${count} · use within ${item.days} days`;
+  const left = daysLeft(item);
+  if (left > 30) return `${count} · keeps for months`;
+  if (left < 0) return `${count} · past its date`;
+  if (left === 0) return `${count} · use today`;
+  if (left === 1) return `${count} · use tomorrow`;
+  return `${count} · use within ${left} days`;
 }
 
 const TAGS: Record<Window, string> = { soon: 'Use it', fresh: 'Fresh', stocked: 'Stocked' };
 
 export default function FridgeScreen({ state, dispatch }: FridgeScreenProps) {
-  const rows = [...state.pantry].sort((a, b) => a.days - b.days);
+  const rows = [...state.pantry].sort((a, b) => a.expiresOn.localeCompare(b.expiresOn));
 
   return (
     <div className={styles.screen}>
@@ -60,25 +66,17 @@ export default function FridgeScreen({ state, dispatch }: FridgeScreenProps) {
             onUnit={(unit) => dispatch({ type: 'pantry/draftUnit', unit })}
           />
 
-          <div className={styles.stepper}>
-            <button
-              type="button"
-              className={styles.step}
-              aria-label="One day fewer"
-              onClick={() => dispatch({ type: 'pantry/stepDays', delta: -1 })}
-            >
-              −
-            </button>
-            <span className={styles.days}>{state.draftDays}d left</span>
-            <button
-              type="button"
-              className={styles.step}
-              aria-label="One day more"
-              onClick={() => dispatch({ type: 'pantry/stepDays', delta: 1 })}
-            >
-              +
-            </button>
-          </div>
+          <label className={styles.expiry}>
+            <span className={styles.expiryLabel}>Use by</span>
+            <input
+              className={styles.date}
+              type="date"
+              min={todayISO()}
+              value={state.draftExpiry}
+              aria-label="Use by date"
+              onChange={(e) => dispatch({ type: 'pantry/draftExpiry', value: e.target.value })}
+            />
+          </label>
         </div>
       </form>
 
