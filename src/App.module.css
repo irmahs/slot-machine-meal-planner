@@ -1,0 +1,29 @@
+.app {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  height: 100dvh;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--ground);
+  --bar-fade: var(--ground);
+  --bar-fade-out: rgba(245, 234, 216, 0);
+}
+
+.app[data-screen='spin'] {
+  background: var(--basket-ground);
+  --bar-fade: var(--basket-ground);
+  --bar-fade-out: rgba(239, 233, 217, 0);
+}
+
+.scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

@@ -1,0 +1,80 @@
+.bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 104px;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 0 18px 12px;
+  background: linear-gradient(var(--bar-fade) 62%, var(--bar-fade-out));
+  pointer-events: none;
+}
+
+.bar > * {
+  pointer-events: auto;
+}
+
+.burger {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4.5px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.burger span {
+  display: block;
+  width: 18px;
+  height: 2.75px;
+  border-radius: 99px;
+  background: var(--terracotta-deep);
+}
+
+.burger span:last-child {
+  width: 12px;
+}
+
+.heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.kicker {
+  font: 700 10px/1 var(--font-body);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-disabled);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 23px;
+  line-height: 1.2;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expiring {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: var(--radius-pill);
+  background: var(--sage-tint);
+  color: var(--sage-ink);
+  font: 700 12px/1 var(--font-body);
+}

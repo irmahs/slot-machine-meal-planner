@@ -1,0 +1,57 @@
+.loader {
+  position: relative;
+  width: 46px;
+  height: 46px;
+}
+
+.icon {
+  position: absolute;
+  inset: 0;
+  width: 46px;
+  height: 46px;
+  opacity: 0;
+  color: var(--basket-action);
+  animation: cookcycle 4.5s linear infinite;
+}
+
+@keyframes cookcycle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(7px) scale(0.86);
+  }
+  4%,
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  19% {
+    opacity: 0;
+    transform: translateY(-7px) scale(0.86);
+  }
+}
+
+.track {
+  width: 96px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--basket-track);
+  overflow: hidden;
+}
+
+.bar {
+  width: 32px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--basket-action);
+  animation: cooktrack 2.4s ease-in-out infinite;
+}
+
+@keyframes cooktrack {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
