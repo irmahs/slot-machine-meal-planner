@@ -73,18 +73,6 @@
   text-overflow: ellipsis;
 }
 
-.expiring {
-  flex: none;
-  display: flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 13px;
-  border-radius: var(--radius-pill);
-  background: var(--sage-tint);
-  color: var(--sage-ink);
-  font: 700 12px/1 var(--font-body);
-}
-
 @media (min-width: 900px) {
   .bar {
     left: 282px;

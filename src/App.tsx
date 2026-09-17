@@ -3,7 +3,7 @@ import styles from './App.module.css';
 import Drawer from './components/Drawer';
 import TopBar from './components/TopBar';
 import SignIn from './components/SignIn';
-import { SETTLE_MS, daysLeft, planSpin } from './engine/reel';
+import { SETTLE_MS, planSpin } from './engine/reel';
 import { DESKTOP, useMediaQuery } from './lib/useMediaQuery';
 import { useRemoteSync } from './lib/useRemoteSync';
 import CookedScreen from './screens/CookedScreen';
@@ -46,7 +46,6 @@ export default function App() {
     );
   }, [spinning, state.idx, state.locks, state.pantry, state.diets, state.weighting]);
 
-  const expiringCount = state.pantry.filter((item) => daysLeft(item) <= 3).length;
   const kickers: Record<Screen, string> = {
     spin: 'Tonight',
     pantry: `${state.pantry.length} items`,
@@ -63,7 +62,6 @@ export default function App() {
       <TopBar
         kicker={kickers[state.screen]}
         title={TITLES[state.screen]}
-        expiringCount={expiringCount}
         onOpenDrawer={() => dispatch({ type: 'drawer/set', open: true })}
       />
 

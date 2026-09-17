@@ -1,11 +1,4 @@
-import {
-  SEED_GROCERY,
-  SEED_PANTRY,
-  seedPlan,
-  type GroceryItem,
-  type PantryItem,
-  type PlanEntry,
-} from '../data/seed';
+import type { GroceryItem, PantryItem, PlanEntry } from '../data/seed';
 import { DEFAULT_UNIT, type UnitCode } from '../data/units';
 import { addDaysISO, todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
@@ -48,9 +41,9 @@ export function createInitialState(): PlannerState {
     dur: ['0s', '0s', '0s'],
     spinning: false,
     picked: null,
-    pantry: SEED_PANTRY,
-    plan: seedPlan(),
-    grocery: SEED_GROCERY,
+    pantry: [],
+    plan: [],
+    grocery: [],
     diets: [],
     repeatDays: 7,
     weighting: true,

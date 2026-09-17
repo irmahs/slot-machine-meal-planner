@@ -169,13 +169,6 @@ export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
   };
 }
 
-const EMPTY: Snapshot = { pantry: [], plan: [], grocery: [] };
-
-/** Pushes a whole snapshot up — used once, to give a new account its starting fridge. */
-export function seedSnapshot(userId: string, snapshot: Snapshot): Promise<void> {
-  return writeChanges(userId, EMPTY, snapshot);
-}
-
 /**
  * Writes only what changed between two snapshots. Diffing keeps the reducer as the single
  * source of truth — compound actions like "into the pot" need no bespoke persistence path.

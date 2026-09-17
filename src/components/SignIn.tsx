@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { sendMagicLink } from '../lib/supabase/auth';
+import { isConfigured } from '../lib/supabase/client';
 import styles from './SignIn.module.css';
 
 type Status = { tone: 'idle' | 'error'; message: string };
@@ -28,8 +29,9 @@ export default function SignIn() {
     <div className={styles.screen}>
       <h1 className={styles.brand}>Spin Supper</h1>
       <p className={styles.blurb}>
-        Your fridge, your week and your list live under your email address. Enter it and we’ll send a
-        sign-in link — no password to remember.
+        {isConfigured
+          ? 'Your fridge, your week and your list live under your email address. Enter it and we’ll send a sign-in link — no password to remember.'
+          : 'Not connected to Supabase. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local and restart, then sign in here.'}
       </p>
       <form className={styles.form} onSubmit={send}>
         <input
@@ -39,10 +41,11 @@ export default function SignIn() {
           autoComplete="email"
           placeholder="you@example.com"
           aria-label="Email address"
+          disabled={!isConfigured}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <button type="submit" className={styles.send} disabled={sending}>
+        <button type="submit" className={styles.send} disabled={sending || !isConfigured}>
           {sending ? 'Sending…' : 'Send link'}
         </button>
       </form>

@@ -12,7 +12,7 @@ loses track of what they have, so food expires and the same three dishes come ro
 | Screen | What it does |
 | --- | --- |
 | **Spin** | Three reels, a payline, and one button. Tap a column to hold it, draw again for the rest, then send the dish into the pot. |
-| **Fridge** | The pantry inventory the reels draw from, sorted by days remaining, with what is about to go off called out. |
+| **Fridge** | The inventory the reels weight by, soonest to go off first, with a use-by date on every item. |
 | **Cooked** | This week's history — what was drawn, and why it was drawn. |
 | **Shopping list** | Built from dishes you said yes to, minus whatever is already in the fridge. Items can be stocked straight into the fridge. |
 | **Reel rules** | Diet constraints, the no-repeat window, and the expiry weighting switch. |
@@ -51,8 +51,8 @@ corpus.
 - Plain CSS: design tokens in `src/styles/tokens.css`, component styles in CSS modules
 - **Lucide** icons at stroke-width 2.75
 - **Vitest** over the reel engine — the spin maths, weighting, and dish naming
-- **Supabase** for persistence and magic-link sign-in — optional; with no credentials the app runs
-  entirely in memory
+- **Supabase** for storage and magic-link sign-in — required: it is where the fridge, the week and
+  the list come from
 
 ## Getting started
 
@@ -73,12 +73,12 @@ screen splits in two — reels on the left, tonight's dish on the right, so a dr
 the result below the fold. One breakpoint, `DESKTOP` in `src/lib/useMediaQuery.ts`, drives both the
 CSS and the drawer's docked state.
 
-Without Supabase credentials the app skips sign-in entirely and keeps everything in memory, which is
-the fastest way to work on the UI.
+Supabase credentials are required. Without them the app stops at the sign-in page and says it is
+not connected, rather than opening onto data that isn't yours.
 
-## Persistence (Supabase)
+## Storage (Supabase)
 
-Optional. Set it up once and your fridge, week and list follow you across devices.
+Every screen but Spin reads its rows from Supabase, so this is setup, not an extra.
 
 ### The data
 
@@ -102,7 +102,7 @@ Three notes on the shape:
   ids are resolved at the boundary in `src/lib/remote.ts`.
 - **A quantity is a number and a unit**: `600` + `g`, `1` + `bag`, `2` + `piece`. Units come from
   `meal_planner_units` rather than free text, so the set stays closed; `src/data/units.ts` mirrors
-  it for the in-memory path, and codes are resolved to ids at the boundary. A count in `piece`
+  it for the app's own model, and codes are resolved to ids at the boundary. A count in `piece`
   renders as `×2`, anything else as `600 g`.
 - **Reel rules are not stored.** Weighting is computed from `date_expiration` at draw time, so
   there is no rules table; the diet chips and no-repeat window on the Reel rules screen live in
@@ -122,13 +122,13 @@ Three notes on the shape:
    app and the anon key is the only one meant to ship in a bundle.
 5. `npm run dev`, enter your email, open the link from the same device.
 
-A separate seed script can fill a signed-in account with the starting fridge, week and list. It is
-also kept outside the repo, and it resolves your account by the address you sign in with, so run it
-only after a first sign-in has created that account.
+A new account starts empty — the app ships no sample fridge. A separate seed script fills one with
+a starting fridge, week and list; it is also kept outside the repo, and it resolves your account by
+the address you sign in with, so run it only after a first sign-in has created that account.
 
-The first sign-in on a new account uploads the starting fridge as seed data; after that the reducer
-is mirrored into Postgres — hydrate on sign-in, then write only what changed. The reducer stays the
-single source of truth, so a compound action like *Into the pot* needs no bespoke save path.
+Signing in loads your rows into the reducer; from then on the reducer is mirrored back into
+Postgres — write only what changed. The reducer stays the single source of truth in the session, so
+a compound action like *Into the pot* needs no bespoke save path.
 
 Two things become honest once data outlives the session: a pantry item stores a **use-by date**
 rather than a frozen countdown, so days keep ticking down while the app is closed, and a history
@@ -138,7 +138,7 @@ entry stores the **date it was cooked**, so tonight's dish stops calling itself 
 
 ```
 src/
-  data/seed.ts          reel lists, dish-naming tables, seed pantry/history/list
+  data/seed.ts          reel lists and the dish-naming tables
   engine/               the machine: weighted pick, spin maths, dish naming
   state/planner.ts      all app state and every action over it
   lib/supabase/         client.ts (browser client), auth.ts (magic link, session, sign out)

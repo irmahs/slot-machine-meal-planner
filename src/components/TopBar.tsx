@@ -3,11 +3,10 @@ import styles from './TopBar.module.css';
 interface TopBarProps {
   kicker: string;
   title: string;
-  expiringCount: number;
   onOpenDrawer: () => void;
 }
 
-export default function TopBar({ kicker, title, expiringCount, onOpenDrawer }: TopBarProps) {
+export default function TopBar({ kicker, title, onOpenDrawer }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.inner}>
@@ -20,7 +19,6 @@ export default function TopBar({ kicker, title, expiringCount, onOpenDrawer }: T
           <div className={styles.kicker}>{kicker}</div>
           <h1 className={styles.title}>{title}</h1>
         </div>
-        <div className={styles.expiring}>{expiringCount} soon</div>
       </div>
     </header>
   );
