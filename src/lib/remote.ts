@@ -1,4 +1,5 @@
 import type { GroceryItem, PantryItem, PlanEntry } from '../data/seed';
+import { DEFAULT_UNIT, type UnitCode } from '../data/units';
 import { addDaysISO, daysUntil } from './dates';
 import { supabase } from './supabase/client';
 
@@ -13,6 +14,12 @@ interface IngredientRow {
   name: string;
 }
 
+interface UnitRow {
+  id: number;
+  code: string;
+}
+
+const UNITS = 'meal_planner_units';
 const INGREDIENTS = 'meal_planner_ingredients';
 const PANTRY = 'meal_planner_pantry';
 const HISTORY = 'meal_planner_history';
@@ -26,6 +33,31 @@ function client() {
 
 function orThrow(result: { error: unknown }): void {
   if (result.error) throw result.error;
+}
+
+/** The unit enum is shared reference data that never changes mid-session, so it is read once. */
+let unitRows: Promise<UnitRow[]> | null = null;
+
+function units(): Promise<UnitRow[]> {
+  if (!unitRows) {
+    unitRows = (async () => {
+      const result = await client().from(UNITS).select('id, code').returns<UnitRow[]>();
+      if (result.error) {
+        unitRows = null; // a failed read should not poison the rest of the session
+        throw result.error;
+      }
+      return result.data ?? [];
+    })();
+  }
+  return unitRows;
+}
+
+async function unitIds(): Promise<Map<UnitCode, number>> {
+  return new Map((await units()).map((row) => [row.code as UnitCode, row.id]));
+}
+
+async function unitCodes(): Promise<Map<number, UnitCode>> {
+  return new Map((await units()).map((row) => [row.id, row.code as UnitCode]));
 }
 
 /**
@@ -58,13 +90,16 @@ async function ingredientIds(userId: string, names: string[]): Promise<Map<strin
 /** Everything the signed-in user has stored, or null on a first sign-in with no rows yet. */
 export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
   const db = client();
-  const [ingredients, pantry, history, links, list] = await Promise.all([
+  const [codeOf, ingredients, pantry, history, links, list] = await Promise.all([
+    unitCodes(),
     db.from(INGREDIENTS).select('id, name').eq('user_id', userId).returns<IngredientRow[]>(),
     db
       .from(PANTRY)
-      .select('id_ingredient, quantity, date_expiration')
+      .select('id_ingredient, quantity, id_unit, date_expiration')
       .eq('user_id', userId)
-      .returns<Array<{ id_ingredient: string; quantity: number; date_expiration: string }>>(),
+      .returns<
+        Array<{ id_ingredient: string; quantity: number; id_unit: number; date_expiration: string }>
+      >(),
     db
       .from(HISTORY)
       .select('id, name_meal, note, date_cooked')
@@ -78,10 +113,12 @@ export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
       .returns<Array<{ id_history: string; id_ingredient: string }>>(),
     db
       .from(SHOPPING_LIST)
-      .select('id_ingredient, quantity, acquired')
+      .select('id_ingredient, quantity, id_unit, acquired')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .returns<Array<{ id_ingredient: string; quantity: number; acquired: boolean }>>(),
+      .returns<
+        Array<{ id_ingredient: string; quantity: number; id_unit: number; acquired: boolean }>
+      >(),
   ]);
 
   [ingredients, pantry, history, links, list].forEach(orThrow);
@@ -99,7 +136,16 @@ export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
   return {
     pantry: (pantry.data ?? []).flatMap((row) => {
       const name = nameOf.get(row.id_ingredient);
-      return name ? [{ name, days: daysUntil(row.date_expiration), qty: Number(row.quantity) }] : [];
+      return name
+        ? [
+            {
+              name,
+              days: daysUntil(row.date_expiration),
+              qty: Number(row.quantity),
+              unit: codeOf.get(row.id_unit) ?? DEFAULT_UNIT,
+            },
+          ]
+        : [];
     }),
     plan: (history.data ?? []).map((row) => ({
       id: row.id,
@@ -110,7 +156,16 @@ export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
     })),
     grocery: (list.data ?? []).flatMap((row) => {
       const name = nameOf.get(row.id_ingredient);
-      return name ? [{ name, qty: Number(row.quantity), acquired: row.acquired }] : [];
+      return name
+        ? [
+            {
+              name,
+              qty: Number(row.quantity),
+              unit: codeOf.get(row.id_unit) ?? DEFAULT_UNIT,
+              acquired: row.acquired,
+            },
+          ]
+        : [];
     }),
   };
 }
@@ -131,18 +186,28 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
 
   const pantryUpserts = next.pantry.filter((item) => {
     const before = prev.pantry.find((p) => p.name === item.name);
-    return !before || before.days !== item.days || before.qty !== item.qty;
+    return (
+      !before || before.days !== item.days || before.qty !== item.qty || before.unit !== item.unit
+    );
   });
   const groceryUpserts = next.grocery.filter((item) => {
     const before = prev.grocery.find((g) => g.name === item.name);
-    return !before || before.acquired !== item.acquired || before.qty !== item.qty;
+    return (
+      !before ||
+      before.acquired !== item.acquired ||
+      before.qty !== item.qty ||
+      before.unit !== item.unit
+    );
   });
   const planAdded = next.plan.filter((entry) => !prev.plan.some((p) => p.id === entry.id));
 
-  const ids = await ingredientIds(userId, [
-    ...pantryUpserts.map((item) => item.name),
-    ...groceryUpserts.map((item) => item.name),
-    ...planAdded.flatMap((entry) => entry.ingredients),
+  const [ids, unitId] = await Promise.all([
+    ingredientIds(userId, [
+      ...pantryUpserts.map((item) => item.name),
+      ...groceryUpserts.map((item) => item.name),
+      ...planAdded.flatMap((entry) => entry.ingredients),
+    ]),
+    unitIds(),
   ]);
 
   if (pantryUpserts.length) {
@@ -156,6 +221,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
                   user_id: userId,
                   id_ingredient: id,
                   quantity: item.qty,
+                  id_unit: unitId.get(item.unit),
                   date_expiration: addDaysISO(item.days),
                 },
               ]
@@ -205,7 +271,15 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
         groceryUpserts.flatMap((item) => {
           const id = ids.get(item.name);
           return id
-            ? [{ user_id: userId, id_ingredient: id, quantity: item.qty, acquired: item.acquired }]
+            ? [
+                {
+                  user_id: userId,
+                  id_ingredient: id,
+                  quantity: item.qty,
+                  id_unit: unitId.get(item.unit),
+                  acquired: item.acquired,
+                },
+              ]
             : [];
         }),
         { onConflict: 'user_id,id_ingredient' },

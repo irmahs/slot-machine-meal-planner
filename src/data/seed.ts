@@ -1,4 +1,5 @@
 import { addDaysISO } from '../lib/dates';
+import type { UnitCode } from './units';
 
 export type Diet = 'meat' | 'fish' | 'veg';
 
@@ -12,6 +13,7 @@ export interface PantryItem {
   name: string;
   days: number;
   qty: number;
+  unit: UnitCode;
 }
 
 export interface PlanEntry {
@@ -27,6 +29,7 @@ export interface PlanEntry {
 export interface GroceryItem {
   name: string;
   qty: number;
+  unit: UnitCode;
   acquired: boolean;
 }
 
@@ -86,14 +89,14 @@ export const SINGULAR: Record<string, string> = {
 };
 
 export const SEED_PANTRY: PantryItem[] = [
-  { name: 'Chicken Thighs', days: 2, qty: 1 },
-  { name: 'Baby Spinach', days: 1, qty: 1 },
-  { name: 'Zucchini', days: 3, qty: 2 },
-  { name: 'Jasmine Rice', days: 90, qty: 1 },
-  { name: 'Eggs', days: 9, qty: 8 },
-  { name: 'Mushrooms', days: 4, qty: 1 },
-  { name: 'Corn Tortillas', days: 12, qty: 10 },
-  { name: 'Firm Tofu', days: 6, qty: 1 },
+  { name: 'Chicken Thighs', days: 2, qty: 600, unit: 'g' },
+  { name: 'Baby Spinach', days: 1, qty: 1, unit: 'bag' },
+  { name: 'Zucchini', days: 3, qty: 2, unit: 'piece' },
+  { name: 'Jasmine Rice', days: 90, qty: 1.5, unit: 'kg' },
+  { name: 'Eggs', days: 9, qty: 8, unit: 'piece' },
+  { name: 'Mushrooms', days: 4, qty: 250, unit: 'g' },
+  { name: 'Corn Tortillas', days: 12, qty: 10, unit: 'piece' },
+  { name: 'Firm Tofu', days: 6, qty: 1, unit: 'block' },
 ];
 
 export function seedPlan(): PlanEntry[] {
@@ -117,7 +120,7 @@ export function seedPlan(): PlanEntry[] {
 }
 
 export const SEED_GROCERY: GroceryItem[] = [
-  { name: 'Broccoli', qty: 1, acquired: false },
-  { name: 'Bell Peppers', qty: 2, acquired: false },
-  { name: 'Salmon Fillet', qty: 1, acquired: true },
+  { name: 'Broccoli', qty: 1, unit: 'bunch', acquired: false },
+  { name: 'Bell Peppers', qty: 2, unit: 'piece', acquired: false },
+  { name: 'Salmon Fillet', qty: 300, unit: 'g', acquired: true },
 ];

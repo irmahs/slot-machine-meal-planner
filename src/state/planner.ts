@@ -6,6 +6,7 @@ import {
   type PantryItem,
   type PlanEntry,
 } from '../data/seed';
+import { DEFAULT_UNIT } from '../data/units';
 import { todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
 import { dishName, pantryOf, pickedNames, settleIdx, type DietRule, type SpinPlan, type Triple } from '../engine/reel';
@@ -152,7 +153,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           ...state.grocery,
           ...missing
             .filter((name) => !state.grocery.some((g) => g.name === name))
-            .map((name) => ({ name, qty: 1, acquired: false })),
+            .map((name) => ({ name, qty: 1, unit: DEFAULT_UNIT, acquired: false })),
         ],
       };
     }
@@ -169,7 +170,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       return {
         ...state,
         pantry: [
-          { name, days: state.draftDays, qty: 1 },
+          { name, days: state.draftDays, qty: 1, unit: DEFAULT_UNIT },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name.toLowerCase() !== name.toLowerCase()),
@@ -190,7 +191,9 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       const already = state.grocery.some((g) => g.name.toLowerCase() === name.toLowerCase());
       return {
         ...state,
-        grocery: already ? state.grocery : [{ name, qty: 1, acquired: false }, ...state.grocery],
+        grocery: already
+          ? state.grocery
+          : [{ name, qty: 1, unit: DEFAULT_UNIT, acquired: false }, ...state.grocery],
         draftGroc: '',
       };
     }
@@ -206,15 +209,22 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'grocery/remove':
       return { ...state, grocery: state.grocery.filter((g) => g.name !== action.name) };
 
-    case 'grocery/stock':
+    case 'grocery/stock': {
+      const bought = state.grocery.find((g) => g.name === action.name);
       return {
         ...state,
         pantry: [
-          { name: action.name, days: STOCKED_WINDOW, qty: 1 },
+          {
+            name: action.name,
+            days: STOCKED_WINDOW,
+            qty: bought?.qty ?? 1,
+            unit: bought?.unit ?? DEFAULT_UNIT,
+          },
           ...state.pantry.filter((p) => p.name !== action.name),
         ],
         grocery: state.grocery.filter((g) => g.name !== action.name),
       };
+    }
 
     case 'rules/toggleDiet':
       return {

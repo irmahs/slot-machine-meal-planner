@@ -1,5 +1,6 @@
 import type { Dispatch } from 'react';
 import type { PantryItem } from '../data/seed';
+import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './FridgeScreen.module.css';
 
@@ -17,7 +18,7 @@ function windowOf(item: PantryItem): Window {
 }
 
 function subFor(item: PantryItem): string {
-  const count = `×${item.qty}`;
+  const count = formatQuantity(item.qty, item.unit);
   if (item.days > 30) return `${count} · keeps for months`;
   if (item.days === 1) return `${count} · use today`;
   return `${count} · use within ${item.days} days`;

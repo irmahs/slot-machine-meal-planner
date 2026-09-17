@@ -1,4 +1,5 @@
 import type { Dispatch } from 'react';
+import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './ShoppingScreen.module.css';
 
@@ -49,7 +50,7 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
             </span>
             <span className={styles.body}>
               <span className={styles.name}>{item.name}</span>
-              <span className={styles.qty}>×{item.qty}</span>
+              <span className={styles.qty}>{formatQuantity(item.qty, item.unit)}</span>
             </span>
           </button>
           <button
