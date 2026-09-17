@@ -2,7 +2,7 @@ import type { GroceryItem, PantryItem, PlanEntry } from '../data/seed';
 import type { DietRule } from '../engine/reel';
 import type { RepeatWindow } from '../state/planner';
 import { addDaysISO, daysUntil } from './dates';
-import { supabase } from './supabase';
+import { supabase } from './supabase/client';
 
 export interface Rules {
   diets: DietRule[];

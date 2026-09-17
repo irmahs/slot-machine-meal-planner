@@ -2,7 +2,8 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useRef, useState, type Dispatch } from 'react';
 import { snapshotOf, type Action, type PlannerState } from '../state/planner';
 import { loadSnapshot, seedSnapshot, writeChanges, type Snapshot } from './remote';
-import { supabase } from './supabase';
+import { currentSession, onAuthChange, signOut } from './supabase/auth';
+import { isConfigured } from './supabase/client';
 
 export type Phase = 'booting' | 'signed-out' | 'ready';
 
@@ -19,7 +20,7 @@ export interface RemoteSync {
  * With no credentials configured the whole thing stays out of the way and the app runs in memory.
  */
 export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): RemoteSync {
-  const [phase, setPhase] = useState<Phase>(supabase ? 'booting' : 'ready');
+  const [phase, setPhase] = useState<Phase>(isConfigured ? 'booting' : 'ready');
   const [session, setSession] = useState<Session | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const synced = useRef<Snapshot | null>(null);
@@ -27,24 +28,25 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
   latest.current = state;
 
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (!data.session) setPhase('signed-out');
+    if (!isConfigured) return;
+
+    currentSession().then((existing) => {
+      setSession(existing);
+      if (!existing) setPhase('signed-out');
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+
+    return onAuthChange((next) => {
       setSession(next);
       if (!next) {
         synced.current = null;
         setPhase('signed-out');
       }
     });
-    return () => data.subscription.unsubscribe();
   }, []);
 
   const userId = session?.user.id;
   useEffect(() => {
-    if (!supabase || !userId) return;
+    if (!isConfigured || !userId) return;
     let cancelled = false;
 
     (async () => {
@@ -76,7 +78,7 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
 
   useEffect(() => {
     const prev = synced.current;
-    if (!supabase || !userId || phase !== 'ready' || !prev) return;
+    if (!isConfigured || !userId || phase !== 'ready' || !prev) return;
 
     const next = snapshotOf(state);
     const unchanged =
@@ -101,6 +103,6 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
     phase,
     email: session?.user.email ?? null,
     saveFailed,
-    signOut: () => void supabase?.auth.signOut(),
+    signOut,
   };
 }

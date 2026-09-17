@@ -92,9 +92,9 @@ Three notes on the shape:
 
 1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
    project*. The Free plan allows two active projects per account.
-2. **Create the tables** — Dashboard → *SQL Editor* → *New query*, paste
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), run it. It creates the
-   six tables above and turns on row-level security so each row is readable only by its owner.
+2. **Create the tables** — Dashboard → *SQL Editor* → *New query*, paste the schema SQL, run it. It
+   creates the six tables above and turns on row-level security so each row is readable only by its
+   owner. The script is kept outside the repo; it is safe to re-run.
 3. **Turn on magic links** — *Authentication → Sign In / Providers → Email*: enable the provider and
    leave *Confirm email* on. Under *Authentication → URL Configuration* set the **Site URL** to where
    the app runs (`http://localhost:5173` for development) and add every other origin you use to
@@ -119,12 +119,16 @@ src/
   data/seed.ts          reel lists, dish-naming tables, seed pantry/history/list
   engine/               the machine: weighted pick, spin maths, dish naming
   state/planner.ts      all app state and every action over it
-  lib/                  supabase client, remote load/diff-write, sync hook, date helpers
+  lib/supabase/         client.ts (browser client), auth.ts (magic link, session, sign out)
+  lib/remote.ts         load a snapshot, write only what changed
+  lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
   components/           TopBar, Drawer, Reel, CookLoader, SignIn
   screens/              Spin, Fridge, Cooked, Shopping, Rules
   styles/               tokens.css (design tokens), base.css
-supabase/migrations/    the schema, to run in the SQL editor
 ```
+
+There is no `server.ts` or `middleware.ts`: this is a static single-page app with no server
+runtime, so the anon key plus row-level security is the whole security model.
 
 ## Design
 
