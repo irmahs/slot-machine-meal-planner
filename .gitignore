@@ -8,3 +8,4 @@ tsconfig.tsbuildinfo
 
 # Run by hand in the Supabase SQL editor; deliberately kept out of the repo.
 supabase/schema.sql
+supabase/seed.sql

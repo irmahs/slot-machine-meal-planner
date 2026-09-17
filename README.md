@@ -107,6 +107,10 @@ Three notes on the shape:
    app and the anon key is the only one meant to ship in a bundle.
 5. `npm run dev`, enter your email, open the link from the same device.
 
+A separate seed script can fill a signed-in account with the starting fridge, week and list. It is
+also kept outside the repo, and it resolves your account by the address you sign in with, so run it
+only after a first sign-in has created that account.
+
 The first sign-in on a new account uploads the starting fridge as seed data; after that the reducer
 is mirrored into Postgres — hydrate on sign-in, then write only what changed. The reducer stays the
 single source of truth, so a compound action like *Into the pot* needs no bespoke save path.
