@@ -13,11 +13,23 @@ interface DrawerProps {
   open: boolean;
   screen: Screen;
   pantryCount: number;
+  email: string | null;
+  saveFailed: boolean;
   onClose: () => void;
   onNavigate: (screen: Screen) => void;
+  onSignOut: () => void;
 }
 
-export default function Drawer({ open, screen, pantryCount, onClose, onNavigate }: DrawerProps) {
+export default function Drawer({
+  open,
+  screen,
+  pantryCount,
+  email,
+  saveFailed,
+  onClose,
+  onNavigate,
+  onSignOut,
+}: DrawerProps) {
   return (
     <>
       <button
@@ -47,6 +59,15 @@ export default function Drawer({ open, screen, pantryCount, onClose, onNavigate 
           </button>
         ))}
         <div className={styles.spacer} />
+        {saveFailed && <div className={styles.warning}>Not saved — check your connection.</div>}
+        {email && (
+          <div className={styles.account}>
+            <span className={styles.email}>{email}</span>
+            <button type="button" className={styles.signOut} tabIndex={open ? 0 : -1} onClick={onSignOut}>
+              Sign out
+            </button>
+          </div>
+        )}
         <div className={styles.note}>Reels favour what’s closest to going off.</div>
       </nav>
     </>

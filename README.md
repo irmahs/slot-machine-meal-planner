@@ -44,7 +44,8 @@ corpus.
 - Plain CSS: design tokens in `src/styles/tokens.css`, component styles in CSS modules
 - **Lucide** icons at stroke-width 2.75
 - **Vitest** over the reel engine — the spin maths, weighting, and dish naming
-- No backend, no auth, no persistence. All state lives in one reducer in memory.
+- **Supabase** for persistence and magic-link sign-in — optional; with no credentials the app runs
+  entirely in memory
 
 ## Getting started
 
@@ -56,7 +57,35 @@ npm test         # reel-engine unit tests
 npm run lint     # typecheck
 ```
 
-The app is laid out for a 402×874 phone viewport and stretches up from there.
+The app is laid out for a 402×874 phone viewport and stretches up from there. Without Supabase
+credentials it starts signed-out-free and keeps everything in memory, which is the fastest way to
+work on the UI.
+
+## Persistence (Supabase)
+
+Optional. Set it up once and your fridge, week and list follow you across devices.
+
+1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
+   project*. The Free plan allows two active projects per account.
+2. **Create the tables** — Dashboard → *SQL Editor* → *New query*, paste
+   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), run it. It creates four
+   tables and turns on row-level security so each row is readable only by the user it belongs to.
+3. **Turn on magic links** — *Authentication → Sign In / Providers → Email*: enable the provider and
+   leave *Confirm email* on. Under *Authentication → URL Configuration* set the **Site URL** to where
+   the app runs (`http://localhost:5173` for development) and add every other origin you use to
+   **Redirect URLs**, including the deployed one. A link only works for a listed origin.
+4. **Wire the keys** — copy `.env.example` to `.env.local` and fill in the project URL and the
+   **anon public** key from *Project Settings → API*. Never the service-role key: this is a browser
+   app and the anon key is the only one meant to ship in a bundle.
+5. `npm run dev`, enter your email, open the link from the same device.
+
+The first sign-in on a new account uploads the starting fridge as seed data; after that the reducer
+is mirrored into Postgres — hydrate on sign-in, then write only what changed. The reducer stays the
+single source of truth, so a compound action like *Into the pot* needs no bespoke save path.
+
+Two things become honest once data outlives the session: a pantry item stores a **use-by date**
+rather than a frozen countdown, so days keep ticking down while the app is closed, and a history
+entry stores the **date it was cooked**, so tonight's dish stops calling itself "Tonight" tomorrow.
 
 ## Project structure
 
@@ -64,10 +93,12 @@ The app is laid out for a 402×874 phone viewport and stretches up from there.
 src/
   data/seed.ts          reel lists, dish-naming tables, seed pantry/history/list
   engine/               the machine: weighted pick, spin maths, dish naming
-  state/plannerReducer  all app state and every action over it
-  components/           TopBar, Drawer, Reel, CookLoader
+  state/planner.ts      all app state and every action over it
+  lib/                  supabase client, remote load/diff-write, sync hook, date helpers
+  components/           TopBar, Drawer, Reel, CookLoader, SignIn
   screens/              Spin, Fridge, Cooked, Shopping, Rules
   styles/               tokens.css (design tokens), base.css
+supabase/migrations/    the schema, to run in the SQL editor
 ```
 
 ## Design
@@ -89,6 +120,7 @@ Design rules that are load-bearing, not decoration:
 
 ## Not built, deliberately
 
-No onboarding, no auth, no persistence, and no per-portion quantities — cooking a dish refreshes
-an item's window rather than decrementing a quantity. The dish photo is an empty slot waiting for
-a real image source. These are the obvious next increments, not oversights.
+No onboarding and no per-portion quantities — cooking a dish refreshes an item's window rather than
+decrementing a quantity. The dish photo is an empty slot waiting for a real image source. Sync is
+last-write-wins with no realtime channel, so two devices editing at once will talk over each other.
+These are the obvious next increments, not oversights.

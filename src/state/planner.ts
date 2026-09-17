@@ -1,11 +1,13 @@
 import {
   SEED_GROCERY,
   SEED_PANTRY,
-  SEED_PLAN,
+  seedPlan,
   type GroceryItem,
   type PantryItem,
   type PlanEntry,
 } from '../data/seed';
+import { todayISO } from '../lib/dates';
+import type { Snapshot } from '../lib/remote';
 import { dishName, pantryOf, pickedNames, settleIdx, type DietRule, type SpinPlan, type Triple } from '../engine/reel';
 
 export type Screen = 'spin' | 'pantry' | 'plan' | 'list' | 'setup';
@@ -30,26 +32,38 @@ export interface PlannerState {
   draftGroc: string;
 }
 
-export const initialState: PlannerState = {
-  screen: 'spin',
-  drawer: false,
-  idx: [0, 0, 0],
-  locks: [false, false, false],
-  dur: ['0s', '0s', '0s'],
-  spinning: false,
-  picked: null,
-  pantry: SEED_PANTRY,
-  plan: SEED_PLAN,
-  grocery: SEED_GROCERY,
-  diets: [],
-  repeatDays: 7,
-  weighting: true,
-  draftName: '',
-  draftDays: 5,
-  draftGroc: '',
-};
+export function createInitialState(): PlannerState {
+  return {
+    screen: 'spin',
+    drawer: false,
+    idx: [0, 0, 0],
+    locks: [false, false, false],
+    dur: ['0s', '0s', '0s'],
+    spinning: false,
+    picked: null,
+    pantry: SEED_PANTRY,
+    plan: seedPlan(),
+    grocery: SEED_GROCERY,
+    diets: [],
+    repeatDays: 7,
+    weighting: true,
+    draftName: '',
+    draftDays: 5,
+    draftGroc: '',
+  };
+}
+
+export function snapshotOf(state: PlannerState): Snapshot {
+  return {
+    pantry: state.pantry,
+    plan: state.plan,
+    grocery: state.grocery,
+    rules: { diets: state.diets, repeatDays: state.repeatDays, weighting: state.weighting },
+  };
+}
 
 export type Action =
+  | { type: 'state/hydrate'; snapshot: Snapshot }
   | { type: 'screen/go'; screen: Screen }
   | { type: 'drawer/set'; open: boolean }
   | { type: 'reel/toggleLock'; reel: number }
@@ -75,6 +89,17 @@ const COOKED_WINDOW = 14;
 
 export function plannerReducer(state: PlannerState, action: Action): PlannerState {
   switch (action.type) {
+    case 'state/hydrate':
+      return {
+        ...state,
+        pantry: action.snapshot.pantry,
+        plan: action.snapshot.plan,
+        grocery: action.snapshot.grocery,
+        diets: action.snapshot.rules.diets,
+        repeatDays: action.snapshot.rules.repeatDays,
+        weighting: action.snapshot.rules.weighting,
+      };
+
     case 'screen/go':
       return { ...state, screen: action.screen, drawer: false };
 
@@ -114,7 +139,10 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         ...state,
         screen: 'plan',
         picked: null,
-        plan: [{ day: 'Tonight', dish, sub: 'Just added from a pull' }, ...state.plan],
+        plan: [
+          { id: crypto.randomUUID(), cookedOn: todayISO(), dish, sub: 'Just added from a pull' },
+          ...state.plan,
+        ],
         pantry: state.pantry.map((item) =>
           names.includes(item.name) ? { ...item, days: Math.max(item.days, COOKED_WINDOW) } : item,
         ),

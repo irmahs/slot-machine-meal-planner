@@ -1,3 +1,5 @@
+import { addDaysISO } from '../lib/dates';
+
 export type Diet = 'meat' | 'fish' | 'veg';
 
 export interface ReelItem {
@@ -13,7 +15,9 @@ export interface PantryItem {
 }
 
 export interface PlanEntry {
-  day: string;
+  id: string;
+  /** ISO date; the day badge label is derived from it so "Tonight" stops being tonight. */
+  cookedOn: string;
   dish: string;
   sub: string;
 }
@@ -90,11 +94,13 @@ export const SEED_PANTRY: PantryItem[] = [
   { name: 'Firm Tofu', days: 6, qty: '1 block' },
 ];
 
-export const SEED_PLAN: PlanEntry[] = [
-  { day: 'Sun', dish: 'Tofu Tacos with blistered peppers', sub: 'Used up the peppers · 2 portions left' },
-  { day: 'Sat', dish: 'Salmon Rice Bowl with charred broccoli', sub: 'Rescued salmon on its last day' },
-  { day: 'Fri', dish: 'Chickpea Orzo Skillet with wilted spinach', sub: 'Pantry-only pull' },
-];
+export function seedPlan(): PlanEntry[] {
+  return [
+    { dish: 'Tofu Tacos with blistered peppers', sub: 'Used up the peppers · 2 portions left' },
+    { dish: 'Salmon Rice Bowl with charred broccoli', sub: 'Rescued salmon on its last day' },
+    { dish: 'Chickpea Orzo Skillet with wilted spinach', sub: 'Pantry-only pull' },
+  ].map((entry, i) => ({ ...entry, id: crypto.randomUUID(), cookedOn: addDaysISO(-(i + 1)) }));
+}
 
 export const SEED_GROCERY: GroceryItem[] = [
   { name: 'Broccoli', why: 'Wanted by Saturday’s bowl', got: false },

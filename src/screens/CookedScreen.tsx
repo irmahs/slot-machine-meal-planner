@@ -1,3 +1,4 @@
+import { dayLabel } from '../lib/dates';
 import type { PlannerState } from '../state/planner';
 import styles from './CookedScreen.module.css';
 
@@ -17,17 +18,20 @@ export default function CookedScreen({ state }: { state: PlannerState }) {
         </div>
       </div>
 
-      {state.plan.map((entry, i) => (
-        <div key={`${entry.day}-${entry.dish}`} className={styles.row} data-latest={i === 0}>
-          <div className={styles.badge} data-long={entry.day.length > 4}>
-            {entry.day}
+      {state.plan.map((entry, i) => {
+        const label = dayLabel(entry.cookedOn);
+        return (
+          <div key={entry.id} className={styles.row} data-latest={i === 0}>
+            <div className={styles.badge} data-long={label.length > 4}>
+              {label}
+            </div>
+            <div className={styles.body}>
+              <div className={styles.dish}>{entry.dish}</div>
+              <div className={styles.sub}>{entry.sub}</div>
+            </div>
           </div>
-          <div className={styles.body}>
-            <div className={styles.dish}>{entry.dish}</div>
-            <div className={styles.sub}>{entry.sub}</div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

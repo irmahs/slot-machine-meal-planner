@@ -2,13 +2,15 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import styles from './App.module.css';
 import Drawer from './components/Drawer';
 import TopBar from './components/TopBar';
+import SignIn from './components/SignIn';
 import { SETTLE_MS, planSpin } from './engine/reel';
+import { useRemoteSync } from './lib/useRemoteSync';
 import CookedScreen from './screens/CookedScreen';
 import FridgeScreen from './screens/FridgeScreen';
 import RulesScreen from './screens/RulesScreen';
 import ShoppingScreen from './screens/ShoppingScreen';
 import SpinScreen from './screens/SpinScreen';
-import { initialState, plannerReducer, type Screen } from './state/planner';
+import { createInitialState, plannerReducer, type Screen } from './state/planner';
 
 const TITLES: Record<Screen, string> = {
   spin: 'Pull the reels',
@@ -19,7 +21,8 @@ const TITLES: Record<Screen, string> = {
 };
 
 export default function App() {
-  const [state, dispatch] = useReducer(plannerReducer, initialState);
+  const [state, dispatch] = useReducer(plannerReducer, undefined, createInitialState);
+  const { phase, email, saveFailed, signOut } = useRemoteSync(state, dispatch);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -50,6 +53,9 @@ export default function App() {
     setup: 'Constraints',
   };
 
+  if (phase === 'signed-out') return <SignIn />;
+  if (phase === 'booting') return <div className={styles.app} />;
+
   return (
     <div className={styles.app} data-screen={state.screen}>
       <TopBar
@@ -71,8 +77,11 @@ export default function App() {
         open={state.drawer}
         screen={state.screen}
         pantryCount={state.pantry.length}
+        email={email}
+        saveFailed={saveFailed}
         onClose={() => dispatch({ type: 'drawer/set', open: false })}
         onNavigate={(screen) => dispatch({ type: 'screen/go', screen })}
+        onSignOut={signOut}
       />
     </div>
   );
