@@ -196,3 +196,38 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
+
+/* On a wide screen the reels and the result sit side by side instead of stacked,
+   so a draw does not push the dish below the fold. */
+@media (min-width: 900px) {
+  .screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'day recipe'
+      'reels recipe'
+      'draw recipe';
+    align-content: start;
+    column-gap: 34px;
+  }
+
+  .day {
+    grid-area: day;
+  }
+
+  .reels {
+    grid-area: reels;
+  }
+
+  .draw {
+    grid-area: draw;
+  }
+
+  .recipe {
+    grid-area: recipe;
+    align-self: start;
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 46px;
+  }
+}

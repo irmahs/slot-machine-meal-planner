@@ -27,3 +27,19 @@
   width: 0;
   height: 0;
 }
+
+/* Above this width the drawer is docked as a sidebar and the content sits beside it. */
+@media (min-width: 900px) {
+  .app {
+    max-width: none;
+  }
+
+  .scroll {
+    left: 282px;
+  }
+
+  .column {
+    max-width: 780px;
+    margin: 0 auto;
+  }
+}

@@ -4,6 +4,7 @@ import Drawer from './components/Drawer';
 import TopBar from './components/TopBar';
 import SignIn from './components/SignIn';
 import { SETTLE_MS, planSpin } from './engine/reel';
+import { DESKTOP, useMediaQuery } from './lib/useMediaQuery';
 import { useRemoteSync } from './lib/useRemoteSync';
 import CookedScreen from './screens/CookedScreen';
 import FridgeScreen from './screens/FridgeScreen';
@@ -23,6 +24,7 @@ const TITLES: Record<Screen, string> = {
 export default function App() {
   const [state, dispatch] = useReducer(plannerReducer, undefined, createInitialState);
   const { phase, email, saveFailed, signOut } = useRemoteSync(state, dispatch);
+  const docked = useMediaQuery(DESKTOP);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -66,15 +68,18 @@ export default function App() {
       />
 
       <div className={styles.scroll}>
-        {state.screen === 'spin' && <SpinScreen state={state} dispatch={dispatch} onSpin={spin} />}
-        {state.screen === 'pantry' && <FridgeScreen state={state} dispatch={dispatch} />}
-        {state.screen === 'plan' && <CookedScreen state={state} />}
-        {state.screen === 'list' && <ShoppingScreen state={state} dispatch={dispatch} />}
-        {state.screen === 'setup' && <RulesScreen state={state} dispatch={dispatch} />}
+        <div className={styles.column}>
+          {state.screen === 'spin' && <SpinScreen state={state} dispatch={dispatch} onSpin={spin} />}
+          {state.screen === 'pantry' && <FridgeScreen state={state} dispatch={dispatch} />}
+          {state.screen === 'plan' && <CookedScreen state={state} />}
+          {state.screen === 'list' && <ShoppingScreen state={state} dispatch={dispatch} />}
+          {state.screen === 'setup' && <RulesScreen state={state} dispatch={dispatch} />}
+        </div>
       </div>
 
       <Drawer
         open={state.drawer}
+        docked={docked}
         screen={state.screen}
         pantryCount={state.pantry.length}
         email={email}

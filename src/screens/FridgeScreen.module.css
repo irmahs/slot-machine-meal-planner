@@ -21,6 +21,67 @@
   align-items: center;
 }
 
+.input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font: 500 14px/1 var(--font-body);
+  color: var(--text);
+  padding: 0 12px;
+  height: 38px;
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--raised);
+  border-radius: var(--radius-pill);
+  padding: 5px 8px;
+}
+
+.step {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  color: var(--badge-ink);
+  cursor: pointer;
+  font: 700 15px/1 var(--font-body);
+}
+
+.step::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+}
+
+.days {
+  font: 700 12px/1 var(--font-body);
+  min-width: 44px;
+  text-align: center;
+}
+
+.add {
+  flex: none;
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--terracotta);
+  color: var(--on-terracotta);
+  cursor: pointer;
+  font: 700 12.5px/1 var(--font-body);
+}
+
 .row {
   display: flex;
   align-items: center;

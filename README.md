@@ -57,9 +57,17 @@ npm test         # reel-engine unit tests
 npm run lint     # typecheck
 ```
 
-The app is laid out for a 402×874 phone viewport and stretches up from there. Without Supabase
-credentials it starts signed-out-free and keeps everything in memory, which is the fastest way to
-work on the UI.
+### Layout
+
+The design was drawn for a 402×874 phone, and below 900px that is exactly what you get: a single
+scrolling column with the burger drawer sliding over it. At 900px and above the drawer docks as a
+permanent sidebar, the burger disappears, content sits in a centred 780px column, and the Spin
+screen splits in two — reels on the left, tonight's dish on the right, so a draw no longer pushes
+the result below the fold. One breakpoint, `DESKTOP` in `src/lib/useMediaQuery.ts`, drives both the
+CSS and the drawer's docked state.
+
+Without Supabase credentials the app skips sign-in entirely and keeps everything in memory, which is
+the fastest way to work on the UI.
 
 ## Persistence (Supabase)
 
