@@ -1,0 +1,59 @@
+:root {
+  /* 2a Basket — the spin screen's skin */
+  --basket-ground: #efe9d9;
+  --basket-card: #f8f4e8;
+  --basket-sunken: #e6e0cd;
+  --basket-ink: #2b2a22;
+  --basket-ink-secondary: #6a6a4a;
+  --basket-ink-tertiary: #5e5e40;
+  --basket-hairline: #b6b596;
+  --basket-divider: #ddd8c2;
+  --basket-rail: #8a7b4e;
+  --basket-action: #3c4a30;
+  --basket-action-ink: #f2f0e2;
+  --basket-track: #d3ccb4;
+
+  /* Organic — the chrome and the four list screens */
+  --ground: #f5ead8;
+  --surface: #ebddc5;
+  --raised: #f9f4ed;
+  --muted: #eee7db;
+  --text: #201e1d;
+  --text-secondary: #645c50;
+  --text-tertiary: #82796a;
+  --text-disabled: #a19786;
+  --border: #dcd3c4;
+  --border-strong: #c0b6a5;
+  --badge-ink: #474238;
+
+  --terracotta: #c67139;
+  --terracotta-deep: #8c491a;
+  --terracotta-darkest: #402310;
+  --terracotta-light: #f6a06b;
+  --terracotta-tint: #ffe1d0;
+  --on-terracotta: #fff2eb;
+
+  --sage: #7a8a5e;
+  --sage-deep: #56633f;
+  --sage-ink: #3d472b;
+  --sage-light: #aebf92;
+  --sage-tint: #e1eecc;
+  --on-sage: #f0fae1;
+
+  --font-display: 'Gloock', Georgia, serif;
+  --font-body: 'Karla', system-ui, -apple-system, sans-serif;
+
+  --radius-reel: 44px;
+  --radius-recipe: 30px;
+  --radius-card: 24px;
+  --radius-stat: 22px;
+  --radius-row: 20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(46, 43, 37, 0.14);
+  --shadow-md: 0 3px 10px rgba(46, 43, 37, 0.16);
+  --shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.22);
+
+  --ease-reel: cubic-bezier(0.14, 0.7, 0.16, 1);
+  --ease-drawer: cubic-bezier(0.2, 0.8, 0.25, 1);
+}
