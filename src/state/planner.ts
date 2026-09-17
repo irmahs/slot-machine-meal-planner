@@ -6,7 +6,7 @@ import {
   type PantryItem,
   type PlanEntry,
 } from '../data/seed';
-import { DEFAULT_UNIT } from '../data/units';
+import { DEFAULT_UNIT, type UnitCode } from '../data/units';
 import { todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
 import { dishName, pantryOf, pickedNames, settleIdx, type DietRule, type SpinPlan, type Triple } from '../engine/reel';
@@ -30,6 +30,9 @@ export interface PlannerState {
   weighting: boolean;
   draftName: string;
   draftDays: number;
+  /** Kept as typed text so the field can be empty or half-written; parsed when the item is added. */
+  draftQty: string;
+  draftUnit: UnitCode;
   draftGroc: string;
 }
 
@@ -50,6 +53,8 @@ export function createInitialState(): PlannerState {
     weighting: true,
     draftName: '',
     draftDays: 5,
+    draftQty: '1',
+    draftUnit: DEFAULT_UNIT,
     draftGroc: '',
   };
 }
@@ -72,6 +77,8 @@ export type Action =
   | { type: 'dish/cook' }
   | { type: 'pantry/draftName'; value: string }
   | { type: 'pantry/stepDays'; delta: number }
+  | { type: 'pantry/draftQty'; value: string }
+  | { type: 'pantry/draftUnit'; unit: UnitCode }
   | { type: 'pantry/add' }
   | { type: 'pantry/remove'; name: string }
   | { type: 'grocery/draft'; value: string }
@@ -164,18 +171,28 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'pantry/stepDays':
       return { ...state, draftDays: Math.min(90, Math.max(1, state.draftDays + action.delta)) };
 
+    case 'pantry/draftQty':
+      return { ...state, draftQty: action.value };
+
+    case 'pantry/draftUnit':
+      return { ...state, draftUnit: action.unit };
+
     case 'pantry/add': {
       const name = state.draftName.trim();
       if (!name) return state;
+      const typed = Number(state.draftQty);
+      const qty = Number.isFinite(typed) && typed > 0 ? typed : 1;
       return {
         ...state,
         pantry: [
-          { name, days: state.draftDays, qty: 1, unit: DEFAULT_UNIT },
+          { name, days: state.draftDays, qty, unit: state.draftUnit },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name.toLowerCase() !== name.toLowerCase()),
         draftName: '',
         draftDays: DEFAULT_DRAFT_DAYS,
+        draftQty: '1',
+        draftUnit: DEFAULT_UNIT,
       };
     }
 
