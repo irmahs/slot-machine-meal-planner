@@ -17,9 +17,10 @@ function windowOf(item: PantryItem): Window {
 }
 
 function subFor(item: PantryItem): string {
-  if (item.days > 30) return `${item.qty} · keeps for months`;
-  if (item.days === 1) return `${item.qty} · use today`;
-  return `${item.qty} · use within ${item.days} days`;
+  const count = `×${item.qty}`;
+  if (item.days > 30) return `${count} · keeps for months`;
+  if (item.days === 1) return `${count} · use today`;
+  return `${count} · use within ${item.days} days`;
 }
 
 const TAGS: Record<Window, string> = { soon: 'Use it', fresh: 'Fresh', stocked: 'Stocked' };

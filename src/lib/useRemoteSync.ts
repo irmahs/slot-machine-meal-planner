@@ -82,12 +82,7 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
 
     const next = snapshotOf(state);
     const unchanged =
-      prev.pantry === next.pantry &&
-      prev.plan === next.plan &&
-      prev.grocery === next.grocery &&
-      prev.rules.diets === next.rules.diets &&
-      prev.rules.repeatDays === next.rules.repeatDays &&
-      prev.rules.weighting === next.rules.weighting;
+      prev.pantry === next.pantry && prev.plan === next.plan && prev.grocery === next.grocery;
     if (unchanged) return;
 
     synced.current = next;

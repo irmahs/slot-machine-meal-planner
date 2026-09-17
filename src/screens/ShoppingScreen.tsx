@@ -37,19 +37,19 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
       {state.grocery.length === 0 && <p className={styles.empty}>Nothing to buy. The fridge has it covered.</p>}
 
       {state.grocery.map((item) => (
-        <div key={item.name} className={styles.row} data-got={item.got}>
+        <div key={item.name} className={styles.row} data-got={item.acquired}>
           <button
             type="button"
             className={styles.toggle}
-            aria-pressed={item.got}
+            aria-pressed={item.acquired}
             onClick={() => dispatch({ type: 'grocery/toggle', name: item.name })}
           >
             <span className={styles.box} aria-hidden="true">
-              {item.got ? '✓' : ''}
+              {item.acquired ? '✓' : ''}
             </span>
             <span className={styles.body}>
               <span className={styles.name}>{item.name}</span>
-              <span className={styles.why}>{item.why}</span>
+              <span className={styles.qty}>×{item.qty}</span>
             </span>
           </button>
           <button

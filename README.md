@@ -73,22 +73,22 @@ the data follows the account even if the address changes.
 
 | Table | Columns | Holds |
 | --- | --- | --- |
-| `ingredients` | `id`, `user_id`, `name` | Every ingredient named once. The other tables point at it, so "Broccoli" is one thing everywhere. |
-| `pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `date_expiration` | What's in the fridge. The reels draw from it and weight by how close `date_expiration` is. |
+| `meal_planner_ingredients` | `id`, `user_id`, `name` | Every ingredient named once. The other tables point at it, so "Broccoli" is one thing everywhere. |
+| `meal_planner_pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `date_expiration` | What's in the fridge. The reels draw from it and weight by how close `date_expiration` is. |
 | `meal_planner_history` | `id`, `user_id`, `name_meal`, `note`, `date_cooked` | One row per dish sent into the pot. Drives the Cooked screen and its two stat cards. |
 | `meal_planner_history_ingredients` | `id_history`, `id_ingredient` | Which three ingredients a meal was drawn from. Separate table because a meal has three, not one. |
-| `shoppinglist` | `id`, `user_id`, `id_ingredient`, `quantity`, `why`, `got` | What to buy. `why` is the reason line under the name, `got` the bought checkbox. |
-| `reel_rules` | `user_id`, `diets`, `repeat_days`, `weighting` | The Reel rules screen — one row per user. |
+| `meal_planner_shopping_list` | `id`, `user_id`, `id_ingredient`, `quantity`, `acquired` | What to buy, and whether it has been bought. |
 
 Three notes on the shape:
 
 - **`id_ingredient`, not a repeated name.** The history and list key on an ingredient id, so the
-  pantry does too and the name lives in `ingredients`. The app still works in names; ids are
-  resolved at the boundary in `src/lib/remote.ts`.
-- **`why` and `got` are not decoration.** Both are on screen in the shopping list; without them the
-  reason line and the checkbox have nowhere to live.
-- **`reel_rules` is the fourth thing the app stores.** Diets, the no-repeat window and the expiry
-  switch would otherwise reset on every sign-in.
+  pantry does too and the name lives in `meal_planner_ingredients`. The app still works in names;
+  ids are resolved at the boundary in `src/lib/remote.ts`.
+- **Quantities are numbers**, so a row counts things rather than describing them. There is no unit
+  column: `2` means two of whatever the ingredient is.
+- **Reel rules are not stored.** Weighting is computed from `date_expiration` at draw time, so
+  there is no rules table; the diet chips and no-repeat window on the Reel rules screen live in
+  memory and reset on reload.
 
 1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
    project*. The Free plan allows two active projects per account.
@@ -149,7 +149,8 @@ Design rules that are load-bearing, not decoration:
 
 ## Not built, deliberately
 
-No onboarding and no per-portion quantities — cooking a dish refreshes an item's window rather than
-decrementing a quantity. The dish photo is an empty slot waiting for a real image source. Sync is
-last-write-wins with no realtime channel, so two devices editing at once will talk over each other.
-These are the obvious next increments, not oversights.
+No onboarding. Cooking a dish refreshes an item's window rather than decrementing its quantity, so
+the number a row carries is what you put there. Quantities have no unit. The dish photo is an empty
+slot waiting for a real image source. Reel rules are not persisted. Sync is last-write-wins with no
+realtime channel, so two devices editing at once will talk over each other. These are the obvious
+next increments, not oversights.

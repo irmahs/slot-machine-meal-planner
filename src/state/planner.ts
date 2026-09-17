@@ -58,7 +58,6 @@ export function snapshotOf(state: PlannerState): Snapshot {
     pantry: state.pantry,
     plan: state.plan,
     grocery: state.grocery,
-    rules: { diets: state.diets, repeatDays: state.repeatDays, weighting: state.weighting },
   };
 }
 
@@ -95,9 +94,6 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         pantry: action.snapshot.pantry,
         plan: action.snapshot.plan,
         grocery: action.snapshot.grocery,
-        diets: action.snapshot.rules.diets,
-        repeatDays: action.snapshot.rules.repeatDays,
-        weighting: action.snapshot.rules.weighting,
       };
 
     case 'screen/go':
@@ -156,7 +152,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           ...state.grocery,
           ...missing
             .filter((name) => !state.grocery.some((g) => g.name === name))
-            .map((name) => ({ name, why: 'Spun tonight, not in the fridge', got: false })),
+            .map((name) => ({ name, qty: 1, acquired: false })),
         ],
       };
     }
@@ -173,7 +169,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       return {
         ...state,
         pantry: [
-          { name, days: state.draftDays, qty: '1' },
+          { name, days: state.draftDays, qty: 1 },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name.toLowerCase() !== name.toLowerCase()),
@@ -194,7 +190,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       const already = state.grocery.some((g) => g.name.toLowerCase() === name.toLowerCase());
       return {
         ...state,
-        grocery: already ? state.grocery : [{ name, why: 'Added by you', got: false }, ...state.grocery],
+        grocery: already ? state.grocery : [{ name, qty: 1, acquired: false }, ...state.grocery],
         draftGroc: '',
       };
     }
@@ -202,7 +198,9 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'grocery/toggle':
       return {
         ...state,
-        grocery: state.grocery.map((g) => (g.name === action.name ? { ...g, got: !g.got } : g)),
+        grocery: state.grocery.map((g) =>
+          g.name === action.name ? { ...g, acquired: !g.acquired } : g,
+        ),
       };
 
     case 'grocery/remove':
@@ -212,7 +210,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       return {
         ...state,
         pantry: [
-          { name: action.name, days: STOCKED_WINDOW, qty: '1' },
+          { name: action.name, days: STOCKED_WINDOW, qty: 1 },
           ...state.pantry.filter((p) => p.name !== action.name),
         ],
         grocery: state.grocery.filter((g) => g.name !== action.name),

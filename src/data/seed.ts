@@ -11,7 +11,7 @@ export interface ReelItem {
 export interface PantryItem {
   name: string;
   days: number;
-  qty: string;
+  qty: number;
 }
 
 export interface PlanEntry {
@@ -26,8 +26,8 @@ export interface PlanEntry {
 
 export interface GroceryItem {
   name: string;
-  why: string;
-  got: boolean;
+  qty: number;
+  acquired: boolean;
 }
 
 export const PROTEIN: ReelItem[] = [
@@ -86,14 +86,14 @@ export const SINGULAR: Record<string, string> = {
 };
 
 export const SEED_PANTRY: PantryItem[] = [
-  { name: 'Chicken Thighs', days: 2, qty: '600 g' },
-  { name: 'Baby Spinach', days: 1, qty: '1 bag' },
-  { name: 'Zucchini', days: 3, qty: '2' },
-  { name: 'Jasmine Rice', days: 90, qty: '1.5 kg' },
-  { name: 'Eggs', days: 9, qty: '8' },
-  { name: 'Mushrooms', days: 4, qty: '250 g' },
-  { name: 'Corn Tortillas', days: 12, qty: '10' },
-  { name: 'Firm Tofu', days: 6, qty: '1 block' },
+  { name: 'Chicken Thighs', days: 2, qty: 1 },
+  { name: 'Baby Spinach', days: 1, qty: 1 },
+  { name: 'Zucchini', days: 3, qty: 2 },
+  { name: 'Jasmine Rice', days: 90, qty: 1 },
+  { name: 'Eggs', days: 9, qty: 8 },
+  { name: 'Mushrooms', days: 4, qty: 1 },
+  { name: 'Corn Tortillas', days: 12, qty: 10 },
+  { name: 'Firm Tofu', days: 6, qty: 1 },
 ];
 
 export function seedPlan(): PlanEntry[] {
@@ -117,7 +117,7 @@ export function seedPlan(): PlanEntry[] {
 }
 
 export const SEED_GROCERY: GroceryItem[] = [
-  { name: 'Broccoli', why: 'Wanted by Saturday’s bowl', got: false },
-  { name: 'Bell Peppers', why: 'Ran out on Sunday', got: false },
-  { name: 'Salmon Fillet', why: 'Spun twice, never in stock', got: true },
+  { name: 'Broccoli', qty: 1, acquired: false },
+  { name: 'Bell Peppers', qty: 2, acquired: false },
+  { name: 'Salmon Fillet', qty: 1, acquired: true },
 ];
