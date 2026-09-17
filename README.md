@@ -65,11 +65,36 @@ work on the UI.
 
 Optional. Set it up once and your fridge, week and list follow you across devices.
 
+### The data
+
+Every table carries the `user_id` of the account that owns the row, and its RLS policy compares
+that to `auth.uid()`. You sign in with an email; Supabase maps the address to a stable user id, so
+the data follows the account even if the address changes.
+
+| Table | Columns | Holds |
+| --- | --- | --- |
+| `ingredients` | `id`, `user_id`, `name` | Every ingredient named once. The other tables point at it, so "Broccoli" is one thing everywhere. |
+| `pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `date_expiration` | What's in the fridge. The reels draw from it and weight by how close `date_expiration` is. |
+| `meal_planner_history` | `id`, `user_id`, `name_meal`, `note`, `date_cooked` | One row per dish sent into the pot. Drives the Cooked screen and its two stat cards. |
+| `meal_planner_history_ingredients` | `id_history`, `id_ingredient` | Which three ingredients a meal was drawn from. Separate table because a meal has three, not one. |
+| `shoppinglist` | `id`, `user_id`, `id_ingredient`, `quantity`, `why`, `got` | What to buy. `why` is the reason line under the name, `got` the bought checkbox. |
+| `reel_rules` | `user_id`, `diets`, `repeat_days`, `weighting` | The Reel rules screen — one row per user. |
+
+Three notes on the shape:
+
+- **`id_ingredient`, not a repeated name.** The history and list key on an ingredient id, so the
+  pantry does too and the name lives in `ingredients`. The app still works in names; ids are
+  resolved at the boundary in `src/lib/remote.ts`.
+- **`why` and `got` are not decoration.** Both are on screen in the shopping list; without them the
+  reason line and the checkbox have nowhere to live.
+- **`reel_rules` is the fourth thing the app stores.** Diets, the no-repeat window and the expiry
+  switch would otherwise reset on every sign-in.
+
 1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
    project*. The Free plan allows two active projects per account.
 2. **Create the tables** — Dashboard → *SQL Editor* → *New query*, paste
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), run it. It creates four
-   tables and turns on row-level security so each row is readable only by the user it belongs to.
+   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), run it. It creates the
+   six tables above and turns on row-level security so each row is readable only by its owner.
 3. **Turn on magic links** — *Authentication → Sign In / Providers → Email*: enable the provider and
    leave *Confirm email* on. Under *Authentication → URL Configuration* set the **Site URL** to where
    the app runs (`http://localhost:5173` for development) and add every other origin you use to

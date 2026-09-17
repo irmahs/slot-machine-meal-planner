@@ -20,6 +20,8 @@ export interface PlanEntry {
   cookedOn: string;
   dish: string;
   sub: string;
+  /** The three picks the dish was drawn from. */
+  ingredients: string[];
 }
 
 export interface GroceryItem {
@@ -96,9 +98,21 @@ export const SEED_PANTRY: PantryItem[] = [
 
 export function seedPlan(): PlanEntry[] {
   return [
-    { dish: 'Tofu Tacos with blistered peppers', sub: 'Used up the peppers · 2 portions left' },
-    { dish: 'Salmon Rice Bowl with charred broccoli', sub: 'Rescued salmon on its last day' },
-    { dish: 'Chickpea Orzo Skillet with wilted spinach', sub: 'Pantry-only pull' },
+    {
+      dish: 'Tofu Tacos with blistered peppers',
+      sub: 'Used up the peppers · 2 portions left',
+      ingredients: ['Firm Tofu', 'Bell Peppers', 'Corn Tortillas'],
+    },
+    {
+      dish: 'Salmon Rice Bowl with charred broccoli',
+      sub: 'Rescued salmon on its last day',
+      ingredients: ['Salmon Fillet', 'Broccoli', 'Jasmine Rice'],
+    },
+    {
+      dish: 'Chickpea Orzo Skillet with wilted spinach',
+      sub: 'Pantry-only pull',
+      ingredients: ['Chickpeas', 'Baby Spinach', 'Orzo'],
+    },
   ].map((entry, i) => ({ ...entry, id: crypto.randomUUID(), cookedOn: addDaysISO(-(i + 1)) }));
 }
 

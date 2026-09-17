@@ -140,7 +140,13 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         screen: 'plan',
         picked: null,
         plan: [
-          { id: crypto.randomUUID(), cookedOn: todayISO(), dish, sub: 'Just added from a pull' },
+          {
+            id: crypto.randomUUID(),
+            cookedOn: todayISO(),
+            dish,
+            sub: 'Just added from a pull',
+            ingredients: [...names],
+          },
           ...state.plan,
         ],
         pantry: state.pantry.map((item) =>

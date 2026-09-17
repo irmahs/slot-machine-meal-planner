@@ -17,49 +17,113 @@ export interface Snapshot {
   rules: Rules;
 }
 
+interface IngredientRow {
+  id: string;
+  name: string;
+}
+
 function client() {
   if (!supabase) throw new Error('Supabase is not configured');
   return supabase;
 }
 
+function orThrow(result: { error: unknown }): void {
+  if (result.error) throw result.error;
+}
+
+/**
+ * Ingredient names are the app's identity for a thing; the tables key on ingredient ids. This
+ * resolves one to the other, creating any name the user has not stored before.
+ */
+async function ingredientIds(userId: string, names: string[]): Promise<Map<string, string>> {
+  const wanted = [...new Set(names)];
+  if (!wanted.length) return new Map();
+
+  const db = client();
+  const inserted = await db
+    .from('ingredients')
+    .upsert(
+      wanted.map((name) => ({ user_id: userId, name })),
+      { onConflict: 'user_id,name', ignoreDuplicates: true },
+    );
+  orThrow(inserted);
+
+  const rows = await db
+    .from('ingredients')
+    .select('id, name')
+    .eq('user_id', userId)
+    .in('name', wanted)
+    .returns<IngredientRow[]>();
+  orThrow(rows);
+
+  return new Map((rows.data ?? []).map((row) => [row.name, row.id]));
+}
+
 /** Everything the signed-in user has stored, or null on a first sign-in with no rows yet. */
 export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
   const db = client();
-  const [pantry, plan, grocery, rules] = await Promise.all([
-    db.from('pantry_items').select('name, use_by, qty').eq('user_id', userId),
+  const [ingredients, pantry, history, links, list, rules] = await Promise.all([
+    db.from('ingredients').select('id, name').eq('user_id', userId).returns<IngredientRow[]>(),
     db
-      .from('cooked_entries')
-      .select('id, dish, note, cooked_on')
+      .from('pantry')
+      .select('id_ingredient, quantity, date_expiration')
       .eq('user_id', userId)
-      .order('cooked_on', { ascending: false })
-      .order('created_at', { ascending: false }),
+      .returns<Array<{ id_ingredient: string; quantity: string; date_expiration: string }>>(),
     db
-      .from('grocery_items')
-      .select('name, why, got')
+      .from('meal_planner_history')
+      .select('id, name_meal, note, date_cooked')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false }),
-    db.from('reel_rules').select('diets, repeat_days, weighting').eq('user_id', userId).maybeSingle(),
+      .order('date_cooked', { ascending: false })
+      .order('created_at', { ascending: false })
+      .returns<Array<{ id: string; name_meal: string; note: string; date_cooked: string }>>(),
+    db
+      .from('meal_planner_history_ingredients')
+      .select('id_history, id_ingredient')
+      .returns<Array<{ id_history: string; id_ingredient: string }>>(),
+    db
+      .from('shoppinglist')
+      .select('id_ingredient, why, got')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .returns<Array<{ id_ingredient: string; why: string; got: boolean }>>(),
+    db
+      .from('reel_rules')
+      .select('diets, repeat_days, weighting')
+      .eq('user_id', userId)
+      .maybeSingle()
+      .returns<{ diets: string[]; repeat_days: number; weighting: boolean } | null>(),
   ]);
 
-  const failed = [pantry, plan, grocery, rules].find((result) => result.error);
-  if (failed?.error) throw failed.error;
+  [ingredients, pantry, history, links, list, rules].forEach(orThrow);
 
-  const empty = !pantry.data?.length && !plan.data?.length && !grocery.data?.length && !rules.data;
-  if (empty) return null;
+  if (!pantry.data?.length && !history.data?.length && !list.data?.length && !rules.data) {
+    return null;
+  }
+
+  const nameOf = new Map((ingredients.data ?? []).map((row) => [row.id, row.name]));
+  const linksByMeal = new Map<string, string[]>();
+  for (const link of links.data ?? []) {
+    const name = nameOf.get(link.id_ingredient);
+    if (!name) continue;
+    linksByMeal.set(link.id_history, [...(linksByMeal.get(link.id_history) ?? []), name]);
+  }
 
   return {
-    pantry: (pantry.data ?? []).map((row) => ({
-      name: row.name,
-      days: daysUntil(row.use_by),
-      qty: row.qty,
-    })),
-    plan: (plan.data ?? []).map((row) => ({
+    pantry: (pantry.data ?? []).flatMap((row) => {
+      const name = nameOf.get(row.id_ingredient);
+      return name ? [{ name, days: daysUntil(row.date_expiration), qty: row.quantity }] : [];
+    }),
+    plan: (history.data ?? []).map((row) => ({
       id: row.id,
-      dish: row.dish,
+      dish: row.name_meal,
       sub: row.note,
-      cookedOn: row.cooked_on,
+      cookedOn: row.date_cooked,
+      ingredients: linksByMeal.get(row.id) ?? [],
     })),
-    grocery: (grocery.data ?? []).map((row) => ({ name: row.name, why: row.why, got: row.got })),
+    grocery: (list.data ?? []).flatMap((row) => {
+      const name = nameOf.get(row.id_ingredient);
+      return name ? [{ name, why: row.why, got: row.got }] : [];
+    }),
     rules: rules.data
       ? {
           diets: rules.data.diets as DietRule[],
@@ -78,8 +142,25 @@ const EMPTY: Snapshot = {
 };
 
 /** Pushes a whole snapshot up — used once, to give a new account its starting fridge. */
-export function seedSnapshot(userId: string, snapshot: Snapshot): Promise<void> {
-  return writeChanges(userId, EMPTY, snapshot);
+export async function seedSnapshot(userId: string, snapshot: Snapshot): Promise<void> {
+  await writeChanges(userId, EMPTY, snapshot);
+  // The defaults match EMPTY, so the diff above skips them; a new account still wants the row.
+  await upsertRules(userId, snapshot.rules);
+}
+
+function upsertRules(userId: string, rules: Rules): PromiseLike<{ error: unknown }> {
+  return client()
+    .from('reel_rules')
+    .upsert(
+      {
+        user_id: userId,
+        diets: rules.diets,
+        repeat_days: rules.repeatDays,
+        weighting: rules.weighting,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    );
 }
 
 /**
@@ -88,69 +169,93 @@ export function seedSnapshot(userId: string, snapshot: Snapshot): Promise<void> 
  */
 export async function writeChanges(userId: string, prev: Snapshot, next: Snapshot): Promise<void> {
   const db = client();
-  const jobs: Array<PromiseLike<{ error: unknown }>> = [];
 
   const pantryUpserts = next.pantry.filter((item) => {
     const before = prev.pantry.find((p) => p.name === item.name);
     return !before || before.days !== item.days || before.qty !== item.qty;
   });
-  if (pantryUpserts.length) {
-    jobs.push(
-      db.from('pantry_items').upsert(
-        pantryUpserts.map((item) => ({
-          user_id: userId,
-          name: item.name,
-          use_by: addDaysISO(item.days),
-          qty: item.qty,
-        })),
-        { onConflict: 'user_id,name' },
-      ),
-    );
-  }
-  const pantryGone = removed(prev.pantry, next.pantry, (item) => item.name);
-  if (pantryGone.length) {
-    jobs.push(db.from('pantry_items').delete().eq('user_id', userId).in('name', pantryGone));
-  }
-
-  const planAdded = next.plan.filter((entry) => !prev.plan.some((p) => p.id === entry.id));
-  if (planAdded.length) {
-    jobs.push(
-      db.from('cooked_entries').insert(
-        planAdded.map((entry) => ({
-          id: entry.id,
-          user_id: userId,
-          dish: entry.dish,
-          note: entry.sub,
-          cooked_on: entry.cookedOn,
-        })),
-      ),
-    );
-  }
-  const planGone = removed(prev.plan, next.plan, (entry) => entry.id);
-  if (planGone.length) {
-    jobs.push(db.from('cooked_entries').delete().eq('user_id', userId).in('id', planGone));
-  }
-
   const groceryUpserts = next.grocery.filter((item) => {
     const before = prev.grocery.find((g) => g.name === item.name);
     return !before || before.got !== item.got || before.why !== item.why;
   });
-  if (groceryUpserts.length) {
-    jobs.push(
-      db.from('grocery_items').upsert(
-        groceryUpserts.map((item) => ({
-          user_id: userId,
-          name: item.name,
-          why: item.why,
-          got: item.got,
-        })),
-        { onConflict: 'user_id,name' },
+  const planAdded = next.plan.filter((entry) => !prev.plan.some((p) => p.id === entry.id));
+
+  const ids = await ingredientIds(userId, [
+    ...pantryUpserts.map((item) => item.name),
+    ...groceryUpserts.map((item) => item.name),
+    ...planAdded.flatMap((entry) => entry.ingredients),
+  ]);
+  const idOf = (name: string): string | undefined => ids.get(name);
+
+  if (pantryUpserts.length) {
+    orThrow(
+      await db.from('pantry').upsert(
+        pantryUpserts.flatMap((item) => {
+          const id = idOf(item.name);
+          return id
+            ? [
+                {
+                  user_id: userId,
+                  id_ingredient: id,
+                  quantity: item.qty,
+                  date_expiration: addDaysISO(item.days),
+                },
+              ]
+            : [];
+        }),
+        { onConflict: 'user_id,id_ingredient' },
       ),
     );
   }
+
+  const pantryGone = removed(prev.pantry, next.pantry, (item) => item.name);
+  if (pantryGone.length) {
+    orThrow(await deleteByIngredientName(userId, 'pantry', pantryGone));
+  }
+
+  if (planAdded.length) {
+    orThrow(
+      await db.from('meal_planner_history').insert(
+        planAdded.map((entry) => ({
+          id: entry.id,
+          user_id: userId,
+          name_meal: entry.dish,
+          note: entry.sub,
+          date_cooked: entry.cookedOn,
+        })),
+      ),
+    );
+    const links = planAdded.flatMap((entry) =>
+      entry.ingredients.flatMap((name) => {
+        const id = idOf(name);
+        return id ? [{ id_history: entry.id, id_ingredient: id }] : [];
+      }),
+    );
+    if (links.length) {
+      orThrow(await db.from('meal_planner_history_ingredients').insert(links));
+    }
+  }
+
+  const planGone = removed(prev.plan, next.plan, (entry) => entry.id);
+  if (planGone.length) {
+    orThrow(await db.from('meal_planner_history').delete().eq('user_id', userId).in('id', planGone));
+  }
+
+  if (groceryUpserts.length) {
+    orThrow(
+      await db.from('shoppinglist').upsert(
+        groceryUpserts.flatMap((item) => {
+          const id = idOf(item.name);
+          return id ? [{ user_id: userId, id_ingredient: id, why: item.why, got: item.got }] : [];
+        }),
+        { onConflict: 'user_id,id_ingredient' },
+      ),
+    );
+  }
+
   const groceryGone = removed(prev.grocery, next.grocery, (item) => item.name);
   if (groceryGone.length) {
-    jobs.push(db.from('grocery_items').delete().eq('user_id', userId).in('name', groceryGone));
+    orThrow(await deleteByIngredientName(userId, 'shoppinglist', groceryGone));
   }
 
   if (
@@ -158,23 +263,27 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
     prev.rules.weighting !== next.rules.weighting ||
     prev.rules.diets.join() !== next.rules.diets.join()
   ) {
-    jobs.push(
-      db.from('reel_rules').upsert(
-        {
-          user_id: userId,
-          diets: next.rules.diets,
-          repeat_days: next.rules.repeatDays,
-          weighting: next.rules.weighting,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' },
-      ),
-    );
+    orThrow(await upsertRules(userId, next.rules));
   }
+}
 
-  const results = await Promise.all(jobs);
-  const failure = results.find((result) => result.error);
-  if (failure) throw failure.error;
+async function deleteByIngredientName(
+  userId: string,
+  table: 'pantry' | 'shoppinglist',
+  names: string[],
+): Promise<{ error: unknown }> {
+  const db = client();
+  const rows = await db
+    .from('ingredients')
+    .select('id, name')
+    .eq('user_id', userId)
+    .in('name', names)
+    .returns<IngredientRow[]>();
+  orThrow(rows);
+
+  const ids = (rows.data ?? []).map((row) => row.id);
+  if (!ids.length) return { error: null };
+  return db.from(table).delete().eq('user_id', userId).in('id_ingredient', ids);
 }
 
 function removed<T>(prev: T[], next: T[], key: (item: T) => string): string[] {
