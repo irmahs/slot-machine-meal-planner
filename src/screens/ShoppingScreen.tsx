@@ -1,4 +1,5 @@
 import type { Dispatch } from 'react';
+import QuantityField from '../components/QuantityField';
 import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './ShoppingScreen.module.css';
@@ -23,16 +24,27 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
           dispatch({ type: 'grocery/add' });
         }}
       >
-        <input
-          className={styles.input}
-          value={state.draftGroc}
-          placeholder="Add to the list…"
-          aria-label="Shopping list item"
-          onChange={(e) => dispatch({ type: 'grocery/draft', value: e.target.value })}
-        />
-        <button type="submit" className={styles.add}>
-          Add
-        </button>
+        <div className={styles.line}>
+          <input
+            className={styles.input}
+            value={state.draftGroc}
+            placeholder="Add to the list…"
+            aria-label="Shopping list item"
+            onChange={(e) => dispatch({ type: 'grocery/draft', value: e.target.value })}
+          />
+          <button type="submit" className={styles.add}>
+            Add
+          </button>
+        </div>
+
+        <div className={styles.line}>
+          <QuantityField
+            quantity={state.draftGrocQty}
+            unit={state.draftGrocUnit}
+            onQuantity={(value) => dispatch({ type: 'grocery/draftQty', value })}
+            onUnit={(unit) => dispatch({ type: 'grocery/draftUnit', unit })}
+          />
+        </div>
       </form>
 
       {state.grocery.length === 0 && <p className={styles.empty}>Nothing to buy. The fridge has it covered.</p>}

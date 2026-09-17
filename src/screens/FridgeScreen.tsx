@@ -1,6 +1,7 @@
 import type { Dispatch } from 'react';
 import type { PantryItem } from '../data/seed';
-import { UNITS, formatQuantity, type UnitCode } from '../data/units';
+import QuantityField from '../components/QuantityField';
+import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './FridgeScreen.module.css';
 
@@ -52,34 +53,12 @@ export default function FridgeScreen({ state, dispatch }: FridgeScreenProps) {
         </div>
 
         <div className={styles.line}>
-          <div className={styles.quantity}>
-            <input
-              className={styles.amount}
-              type="number"
-              min="0"
-              step="any"
-              inputMode="decimal"
-              value={state.draftQty}
-              aria-label="Quantity"
-              onChange={(e) => dispatch({ type: 'pantry/draftQty', value: e.target.value })}
-            />
-            <span className={styles.unitWrap}>
-              <select
-                className={styles.unit}
-                value={state.draftUnit}
-                aria-label="Unit"
-                onChange={(e) =>
-                  dispatch({ type: 'pantry/draftUnit', unit: e.target.value as UnitCode })
-                }
-              >
-                {UNITS.map((unit) => (
-                  <option key={unit.code} value={unit.code}>
-                    {unit.code}
-                  </option>
-                ))}
-              </select>
-            </span>
-          </div>
+          <QuantityField
+            quantity={state.draftQty}
+            unit={state.draftUnit}
+            onQuantity={(value) => dispatch({ type: 'pantry/draftQty', value })}
+            onUnit={(unit) => dispatch({ type: 'pantry/draftUnit', unit })}
+          />
 
           <div className={styles.stepper}>
             <button

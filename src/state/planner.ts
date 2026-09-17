@@ -34,6 +34,8 @@ export interface PlannerState {
   draftQty: string;
   draftUnit: UnitCode;
   draftGroc: string;
+  draftGrocQty: string;
+  draftGrocUnit: UnitCode;
 }
 
 export function createInitialState(): PlannerState {
@@ -56,6 +58,8 @@ export function createInitialState(): PlannerState {
     draftQty: '1',
     draftUnit: DEFAULT_UNIT,
     draftGroc: '',
+    draftGrocQty: '1',
+    draftGrocUnit: DEFAULT_UNIT,
   };
 }
 
@@ -82,6 +86,8 @@ export type Action =
   | { type: 'pantry/add' }
   | { type: 'pantry/remove'; name: string }
   | { type: 'grocery/draft'; value: string }
+  | { type: 'grocery/draftQty'; value: string }
+  | { type: 'grocery/draftUnit'; unit: UnitCode }
   | { type: 'grocery/add' }
   | { type: 'grocery/toggle'; name: string }
   | { type: 'grocery/remove'; name: string }
@@ -89,6 +95,12 @@ export type Action =
   | { type: 'rules/toggleDiet'; diet: DietRule }
   | { type: 'rules/repeatDays'; days: RepeatWindow }
   | { type: 'rules/toggleWeighting' };
+
+/** A blank or nonsense entry means one of the thing, not NaN. */
+function parseQuantity(typed: string): number {
+  const value = Number(typed);
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
 
 const DEFAULT_DRAFT_DAYS = 5;
 const STOCKED_WINDOW = 6;
@@ -180,12 +192,10 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'pantry/add': {
       const name = state.draftName.trim();
       if (!name) return state;
-      const typed = Number(state.draftQty);
-      const qty = Number.isFinite(typed) && typed > 0 ? typed : 1;
       return {
         ...state,
         pantry: [
-          { name, days: state.draftDays, qty, unit: state.draftUnit },
+          { name, days: state.draftDays, qty: parseQuantity(state.draftQty), unit: state.draftUnit },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name.toLowerCase() !== name.toLowerCase()),
@@ -202,6 +212,12 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'grocery/draft':
       return { ...state, draftGroc: action.value };
 
+    case 'grocery/draftQty':
+      return { ...state, draftGrocQty: action.value };
+
+    case 'grocery/draftUnit':
+      return { ...state, draftGrocUnit: action.unit };
+
     case 'grocery/add': {
       const name = state.draftGroc.trim();
       if (!name) return state;
@@ -210,8 +226,13 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         ...state,
         grocery: already
           ? state.grocery
-          : [{ name, qty: 1, unit: DEFAULT_UNIT, acquired: false }, ...state.grocery],
+          : [
+              { name, qty: parseQuantity(state.draftGrocQty), unit: state.draftGrocUnit, acquired: false },
+              ...state.grocery,
+            ],
         draftGroc: '',
+        draftGrocQty: '1',
+        draftGrocUnit: DEFAULT_UNIT,
       };
     }
 

@@ -153,8 +153,7 @@ Design rules that are load-bearing, not decoration:
 ## Not built, deliberately
 
 No onboarding. Cooking a dish refreshes an item's window rather than decrementing its quantity, so
-the number a row carries is what you put there. The shopping list's add row takes a name only —
-anything added there starts at one piece, and picks up a real quantity when you stock it. The dish
-photo is an empty slot waiting for a real image source. Reel rules are not persisted. Sync is
-last-write-wins with no realtime channel, so two devices editing at once will talk over each other.
-These are the obvious next increments, not oversights.
+the number a row carries is what you put there. The dish photo is an empty slot waiting for a real
+image source. Reel rules are not persisted. Sync is last-write-wins with no realtime channel, so two
+devices editing at once will talk over each other. These are the obvious next increments, not
+oversights.
