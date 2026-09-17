@@ -1,4 +1,5 @@
 import { addDaysISO } from '../lib/dates';
+import type { UnitCode } from './units';
 
 export type Diet = 'meat' | 'fish' | 'veg';
 
@@ -11,7 +12,8 @@ export interface ReelItem {
 export interface PantryItem {
   name: string;
   days: number;
-  qty: string;
+  qty: number;
+  unit: UnitCode;
 }
 
 export interface PlanEntry {
@@ -20,12 +22,15 @@ export interface PlanEntry {
   cookedOn: string;
   dish: string;
   sub: string;
+  /** The three picks the dish was drawn from. */
+  ingredients: string[];
 }
 
 export interface GroceryItem {
   name: string;
-  why: string;
-  got: boolean;
+  qty: number;
+  unit: UnitCode;
+  acquired: boolean;
 }
 
 export const PROTEIN: ReelItem[] = [
@@ -84,26 +89,38 @@ export const SINGULAR: Record<string, string> = {
 };
 
 export const SEED_PANTRY: PantryItem[] = [
-  { name: 'Chicken Thighs', days: 2, qty: '600 g' },
-  { name: 'Baby Spinach', days: 1, qty: '1 bag' },
-  { name: 'Zucchini', days: 3, qty: '2' },
-  { name: 'Jasmine Rice', days: 90, qty: '1.5 kg' },
-  { name: 'Eggs', days: 9, qty: '8' },
-  { name: 'Mushrooms', days: 4, qty: '250 g' },
-  { name: 'Corn Tortillas', days: 12, qty: '10' },
-  { name: 'Firm Tofu', days: 6, qty: '1 block' },
+  { name: 'Chicken Thighs', days: 2, qty: 600, unit: 'g' },
+  { name: 'Baby Spinach', days: 1, qty: 1, unit: 'bag' },
+  { name: 'Zucchini', days: 3, qty: 2, unit: 'piece' },
+  { name: 'Jasmine Rice', days: 90, qty: 1.5, unit: 'kg' },
+  { name: 'Eggs', days: 9, qty: 8, unit: 'piece' },
+  { name: 'Mushrooms', days: 4, qty: 250, unit: 'g' },
+  { name: 'Corn Tortillas', days: 12, qty: 10, unit: 'piece' },
+  { name: 'Firm Tofu', days: 6, qty: 1, unit: 'block' },
 ];
 
 export function seedPlan(): PlanEntry[] {
   return [
-    { dish: 'Tofu Tacos with blistered peppers', sub: 'Used up the peppers · 2 portions left' },
-    { dish: 'Salmon Rice Bowl with charred broccoli', sub: 'Rescued salmon on its last day' },
-    { dish: 'Chickpea Orzo Skillet with wilted spinach', sub: 'Pantry-only pull' },
+    {
+      dish: 'Tofu Tacos with blistered peppers',
+      sub: 'Used up the peppers · 2 portions left',
+      ingredients: ['Firm Tofu', 'Bell Peppers', 'Corn Tortillas'],
+    },
+    {
+      dish: 'Salmon Rice Bowl with charred broccoli',
+      sub: 'Rescued salmon on its last day',
+      ingredients: ['Salmon Fillet', 'Broccoli', 'Jasmine Rice'],
+    },
+    {
+      dish: 'Chickpea Orzo Skillet with wilted spinach',
+      sub: 'Pantry-only pull',
+      ingredients: ['Chickpeas', 'Baby Spinach', 'Orzo'],
+    },
   ].map((entry, i) => ({ ...entry, id: crypto.randomUUID(), cookedOn: addDaysISO(-(i + 1)) }));
 }
 
 export const SEED_GROCERY: GroceryItem[] = [
-  { name: 'Broccoli', why: 'Wanted by Saturday’s bowl', got: false },
-  { name: 'Bell Peppers', why: 'Ran out on Sunday', got: false },
-  { name: 'Salmon Fillet', why: 'Spun twice, never in stock', got: true },
+  { name: 'Broccoli', qty: 1, unit: 'bunch', acquired: false },
+  { name: 'Bell Peppers', qty: 2, unit: 'piece', acquired: false },
+  { name: 'Salmon Fillet', qty: 300, unit: 'g', acquired: true },
 ];

@@ -6,6 +6,7 @@ import {
   type PantryItem,
   type PlanEntry,
 } from '../data/seed';
+import { DEFAULT_UNIT, type UnitCode } from '../data/units';
 import { todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
 import { dishName, pantryOf, pickedNames, settleIdx, type DietRule, type SpinPlan, type Triple } from '../engine/reel';
@@ -29,7 +30,12 @@ export interface PlannerState {
   weighting: boolean;
   draftName: string;
   draftDays: number;
+  /** Kept as typed text so the field can be empty or half-written; parsed when the item is added. */
+  draftQty: string;
+  draftUnit: UnitCode;
   draftGroc: string;
+  draftGrocQty: string;
+  draftGrocUnit: UnitCode;
 }
 
 export function createInitialState(): PlannerState {
@@ -49,7 +55,11 @@ export function createInitialState(): PlannerState {
     weighting: true,
     draftName: '',
     draftDays: 5,
+    draftQty: '1',
+    draftUnit: DEFAULT_UNIT,
     draftGroc: '',
+    draftGrocQty: '1',
+    draftGrocUnit: DEFAULT_UNIT,
   };
 }
 
@@ -58,7 +68,6 @@ export function snapshotOf(state: PlannerState): Snapshot {
     pantry: state.pantry,
     plan: state.plan,
     grocery: state.grocery,
-    rules: { diets: state.diets, repeatDays: state.repeatDays, weighting: state.weighting },
   };
 }
 
@@ -72,9 +81,13 @@ export type Action =
   | { type: 'dish/cook' }
   | { type: 'pantry/draftName'; value: string }
   | { type: 'pantry/stepDays'; delta: number }
+  | { type: 'pantry/draftQty'; value: string }
+  | { type: 'pantry/draftUnit'; unit: UnitCode }
   | { type: 'pantry/add' }
   | { type: 'pantry/remove'; name: string }
   | { type: 'grocery/draft'; value: string }
+  | { type: 'grocery/draftQty'; value: string }
+  | { type: 'grocery/draftUnit'; unit: UnitCode }
   | { type: 'grocery/add' }
   | { type: 'grocery/toggle'; name: string }
   | { type: 'grocery/remove'; name: string }
@@ -82,6 +95,12 @@ export type Action =
   | { type: 'rules/toggleDiet'; diet: DietRule }
   | { type: 'rules/repeatDays'; days: RepeatWindow }
   | { type: 'rules/toggleWeighting' };
+
+/** A blank or nonsense entry means one of the thing, not NaN. */
+function parseQuantity(typed: string): number {
+  const value = Number(typed);
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
 
 const DEFAULT_DRAFT_DAYS = 5;
 const STOCKED_WINDOW = 6;
@@ -95,9 +114,6 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         pantry: action.snapshot.pantry,
         plan: action.snapshot.plan,
         grocery: action.snapshot.grocery,
-        diets: action.snapshot.rules.diets,
-        repeatDays: action.snapshot.rules.repeatDays,
-        weighting: action.snapshot.rules.weighting,
       };
 
     case 'screen/go':
@@ -140,7 +156,13 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         screen: 'plan',
         picked: null,
         plan: [
-          { id: crypto.randomUUID(), cookedOn: todayISO(), dish, sub: 'Just added from a pull' },
+          {
+            id: crypto.randomUUID(),
+            cookedOn: todayISO(),
+            dish,
+            sub: 'Just added from a pull',
+            ingredients: [...names],
+          },
           ...state.plan,
         ],
         pantry: state.pantry.map((item) =>
@@ -150,7 +172,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           ...state.grocery,
           ...missing
             .filter((name) => !state.grocery.some((g) => g.name === name))
-            .map((name) => ({ name, why: 'Spun tonight, not in the fridge', got: false })),
+            .map((name) => ({ name, qty: 1, unit: DEFAULT_UNIT, acquired: false })),
         ],
       };
     }
@@ -161,18 +183,26 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'pantry/stepDays':
       return { ...state, draftDays: Math.min(90, Math.max(1, state.draftDays + action.delta)) };
 
+    case 'pantry/draftQty':
+      return { ...state, draftQty: action.value };
+
+    case 'pantry/draftUnit':
+      return { ...state, draftUnit: action.unit };
+
     case 'pantry/add': {
       const name = state.draftName.trim();
       if (!name) return state;
       return {
         ...state,
         pantry: [
-          { name, days: state.draftDays, qty: '1' },
+          { name, days: state.draftDays, qty: parseQuantity(state.draftQty), unit: state.draftUnit },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name.toLowerCase() !== name.toLowerCase()),
         draftName: '',
         draftDays: DEFAULT_DRAFT_DAYS,
+        draftQty: '1',
+        draftUnit: DEFAULT_UNIT,
       };
     }
 
@@ -182,35 +212,57 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'grocery/draft':
       return { ...state, draftGroc: action.value };
 
+    case 'grocery/draftQty':
+      return { ...state, draftGrocQty: action.value };
+
+    case 'grocery/draftUnit':
+      return { ...state, draftGrocUnit: action.unit };
+
     case 'grocery/add': {
       const name = state.draftGroc.trim();
       if (!name) return state;
       const already = state.grocery.some((g) => g.name.toLowerCase() === name.toLowerCase());
       return {
         ...state,
-        grocery: already ? state.grocery : [{ name, why: 'Added by you', got: false }, ...state.grocery],
+        grocery: already
+          ? state.grocery
+          : [
+              { name, qty: parseQuantity(state.draftGrocQty), unit: state.draftGrocUnit, acquired: false },
+              ...state.grocery,
+            ],
         draftGroc: '',
+        draftGrocQty: '1',
+        draftGrocUnit: DEFAULT_UNIT,
       };
     }
 
     case 'grocery/toggle':
       return {
         ...state,
-        grocery: state.grocery.map((g) => (g.name === action.name ? { ...g, got: !g.got } : g)),
+        grocery: state.grocery.map((g) =>
+          g.name === action.name ? { ...g, acquired: !g.acquired } : g,
+        ),
       };
 
     case 'grocery/remove':
       return { ...state, grocery: state.grocery.filter((g) => g.name !== action.name) };
 
-    case 'grocery/stock':
+    case 'grocery/stock': {
+      const bought = state.grocery.find((g) => g.name === action.name);
       return {
         ...state,
         pantry: [
-          { name: action.name, days: STOCKED_WINDOW, qty: '1' },
+          {
+            name: action.name,
+            days: STOCKED_WINDOW,
+            qty: bought?.qty ?? 1,
+            unit: bought?.unit ?? DEFAULT_UNIT,
+          },
           ...state.pantry.filter((p) => p.name !== action.name),
         ],
         grocery: state.grocery.filter((g) => g.name !== action.name),
       };
+    }
 
     case 'rules/toggleDiet':
       return {

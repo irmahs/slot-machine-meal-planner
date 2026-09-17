@@ -7,13 +7,19 @@
   z-index: 30;
   display: flex;
   align-items: flex-end;
-  gap: 12px;
   padding: 0 18px 12px;
   background: linear-gradient(var(--bar-fade) 62%, var(--bar-fade-out));
   pointer-events: none;
 }
 
-.bar > * {
+.inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.inner > * {
   pointer-events: auto;
 }
 
@@ -77,4 +83,20 @@
   background: var(--sage-tint);
   color: var(--sage-ink);
   font: 700 12px/1 var(--font-body);
+}
+
+@media (min-width: 900px) {
+  .bar {
+    left: 282px;
+  }
+
+  /* The sidebar is always on screen, so nothing needs opening. */
+  .burger {
+    display: none;
+  }
+
+  .inner {
+    max-width: 780px;
+    margin: 0 auto;
+  }
 }

@@ -132,3 +132,13 @@
   font: 500 11.5px/1.5 var(--font-body);
   color: var(--border-strong);
 }
+
+@media (min-width: 900px) {
+  .scrim {
+    display: none;
+  }
+
+  .drawer {
+    box-shadow: none;
+  }
+}

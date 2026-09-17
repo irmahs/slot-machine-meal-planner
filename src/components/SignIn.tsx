@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { sendMagicLink } from '../lib/supabase/auth';
 import styles from './SignIn.module.css';
 
 type Status = { tone: 'idle' | 'error'; message: string };
@@ -11,17 +11,16 @@ export default function SignIn() {
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
-    if (!supabase || !email.trim()) return;
+    const address = email.trim();
+    if (!address) return;
+
     setSending(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
-    });
+    const { error } = await sendMagicLink(address);
     setSending(false);
     setStatus(
       error
-        ? { tone: 'error', message: error.message }
-        : { tone: 'idle', message: `Link sent to ${email.trim()}. Open it on this device.` },
+        ? { tone: 'error', message: error }
+        : { tone: 'idle', message: `Link sent to ${address}. Open it on this device.` },
     );
   }
 

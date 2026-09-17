@@ -1,5 +1,7 @@
 import type { Dispatch } from 'react';
 import type { PantryItem } from '../data/seed';
+import QuantityField from '../components/QuantityField';
+import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './FridgeScreen.module.css';
 
@@ -17,9 +19,10 @@ function windowOf(item: PantryItem): Window {
 }
 
 function subFor(item: PantryItem): string {
-  if (item.days > 30) return `${item.qty} · keeps for months`;
-  if (item.days === 1) return `${item.qty} · use today`;
-  return `${item.qty} · use within ${item.days} days`;
+  const count = formatQuantity(item.qty, item.unit);
+  if (item.days > 30) return `${count} · keeps for months`;
+  if (item.days === 1) return `${count} · use today`;
+  return `${count} · use within ${item.days} days`;
 }
 
 const TAGS: Record<Window, string> = { soon: 'Use it', fresh: 'Fresh', stocked: 'Stocked' };
@@ -36,35 +39,47 @@ export default function FridgeScreen({ state, dispatch }: FridgeScreenProps) {
           dispatch({ type: 'pantry/add' });
         }}
       >
-        <input
-          className={styles.input}
-          value={state.draftName}
-          placeholder="Add an item…"
-          aria-label="Item name"
-          onChange={(e) => dispatch({ type: 'pantry/draftName', value: e.target.value })}
-        />
-        <div className={styles.stepper}>
-          <button
-            type="button"
-            className={styles.step}
-            aria-label="One day fewer"
-            onClick={() => dispatch({ type: 'pantry/stepDays', delta: -1 })}
-          >
-            −
-          </button>
-          <span className={styles.days}>{state.draftDays}d left</span>
-          <button
-            type="button"
-            className={styles.step}
-            aria-label="One day more"
-            onClick={() => dispatch({ type: 'pantry/stepDays', delta: 1 })}
-          >
-            +
+        <div className={styles.line}>
+          <input
+            className={styles.input}
+            value={state.draftName}
+            placeholder="Add an item…"
+            aria-label="Item name"
+            onChange={(e) => dispatch({ type: 'pantry/draftName', value: e.target.value })}
+          />
+          <button type="submit" className={styles.add}>
+            Add
           </button>
         </div>
-        <button type="submit" className={styles.add}>
-          Add
-        </button>
+
+        <div className={styles.line}>
+          <QuantityField
+            quantity={state.draftQty}
+            unit={state.draftUnit}
+            onQuantity={(value) => dispatch({ type: 'pantry/draftQty', value })}
+            onUnit={(unit) => dispatch({ type: 'pantry/draftUnit', unit })}
+          />
+
+          <div className={styles.stepper}>
+            <button
+              type="button"
+              className={styles.step}
+              aria-label="One day fewer"
+              onClick={() => dispatch({ type: 'pantry/stepDays', delta: -1 })}
+            >
+              −
+            </button>
+            <span className={styles.days}>{state.draftDays}d left</span>
+            <button
+              type="button"
+              className={styles.step}
+              aria-label="One day more"
+              onClick={() => dispatch({ type: 'pantry/stepDays', delta: 1 })}
+            >
+              +
+            </button>
+          </div>
+        </div>
       </form>
 
       {rows.length === 0 && <p className={styles.empty}>Nothing in the fridge — the reels have little to go on.</p>}
