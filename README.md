@@ -134,6 +134,46 @@ Two things become honest once data outlives the session: a pantry item stores a 
 rather than a frozen countdown, so days keep ticking down while the app is closed, and a history
 entry stores the **date it was cooked**, so tonight's dish stops calling itself "Tonight" tomorrow.
 
+## Deploying (Vercel)
+
+Import the repo and the defaults are right — Vite is detected, `npm run build`, output `dist`. There
+are no client-side routes, so no rewrite config is needed.
+
+**Environment variables.** `.env.local` is gitignored, so Vercel never sees it: the same two
+variables have to be set again under *Project Settings → Environment Variables*, ticked for
+Production, Preview and Development.
+
+Two things about them are easy to get wrong:
+
+- **They are baked in at build time.** Vite substitutes `import.meta.env.*` into the JavaScript
+  during the build rather than reading it when the page loads. Adding or changing a variable does
+  nothing until you **redeploy** — a deploy made before you set them will keep saying it is not
+  connected.
+- **Anything named `VITE_*` ships inside the bundle** and is readable by anyone. That is fine for
+  the publishable key, which is designed to be public and is backed by row-level security. It is
+  exactly why a `sb_secret_…` key must never be given a `VITE_` name.
+
+**Supabase URL configuration.** Under *Authentication → URL Configuration*, set the Site URL to the
+production domain and list every origin that may receive a magic link:
+
+```
+Site URL       https://<your-project>.vercel.app
+
+Redirect URLs  https://<your-project>.vercel.app
+               https://<your-project>.vercel.app/**
+               https://<your-project>-*.vercel.app/**
+               http://localhost:5173/**
+```
+
+The separators in Supabase's matcher are `.` and `/`: `*` matches within one segment, `**` across
+several. So `<your-project>-*.vercel.app` covers preview and branch deploys
+(`…-a1b2c3-you.vercel.app`, `…-git-main-you.vercel.app`) but never the bare production host, which
+needs its own entry. Both the bare origin and the `/**` form are listed for production because the
+app sends `emailRedirectTo: window.location.origin`, which carries no path at all.
+
+Take the production domain from Vercel's *Domains* list rather than assuming it: if the project
+name was taken, Vercel appends a suffix and the Site URL above would be wrong.
+
 ## Project structure
 
 ```
