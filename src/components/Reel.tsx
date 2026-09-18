@@ -1,4 +1,4 @@
-import { CELL_HEIGHT, STRIP_REPEATS, pantryOf } from '../engine/reel';
+import { CELL_HEIGHT, STRIP_REPEATS, daysLeft, pantryOf } from '../engine/reel';
 import type { PantryItem, ReelItem } from '../data/seed';
 import styles from './Reel.module.css';
 
@@ -15,7 +15,12 @@ interface ReelProps {
 function noteFor(item: ReelItem, pantry: PantryItem[]): string {
   const stocked = pantryOf(pantry, item.name);
   if (!stocked) return 'need to buy';
-  return stocked.days > 30 ? 'stocked' : `${stocked.days}d left`;
+
+  const left = daysLeft(stocked);
+  if (left > 30) return 'stocked';
+  if (left < 0) return 'overdue';
+  if (left === 0) return 'today';
+  return `${left}d left`;
 }
 
 export default function Reel({

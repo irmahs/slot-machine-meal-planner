@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GRAIN, GREEN, PROTEIN, REELS, SEED_PANTRY } from '../data/seed';
+import { GRAIN, GREEN, PROTEIN, REELS, type PantryItem } from '../data/seed';
+import { addDaysISO } from '../lib/dates';
 import {
   allowed,
   dishName,
@@ -12,7 +13,15 @@ import {
   type Triple,
 } from './reel';
 
-const ctx: PickContext = { pantry: SEED_PANTRY, diets: [], weighting: true };
+const PANTRY: PantryItem[] = [
+  { name: 'Chicken Thighs', expiresOn: addDaysISO(2), qty: 600, unit: 'g' },
+  { name: 'Baby Spinach', expiresOn: addDaysISO(1), qty: 1, unit: 'bag' },
+  { name: 'Zucchini', expiresOn: addDaysISO(3), qty: 2, unit: 'piece' },
+  { name: 'Jasmine Rice', expiresOn: addDaysISO(90), qty: 1.5, unit: 'kg' },
+  { name: 'Firm Tofu', expiresOn: addDaysISO(6), qty: 1, unit: 'block' },
+];
+
+const ctx: PickContext = { pantry: PANTRY, diets: [], weighting: true };
 
 describe('payline', () => {
   it('reads the middle visible cell, one past the strip offset', () => {

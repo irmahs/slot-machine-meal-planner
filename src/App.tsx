@@ -46,7 +46,6 @@ export default function App() {
     );
   }, [spinning, state.idx, state.locks, state.pantry, state.diets, state.weighting]);
 
-  const expiringCount = state.pantry.filter((item) => item.days <= 3).length;
   const kickers: Record<Screen, string> = {
     spin: 'Tonight',
     pantry: `${state.pantry.length} items`,
@@ -63,7 +62,6 @@ export default function App() {
       <TopBar
         kicker={kickers[state.screen]}
         title={TITLES[state.screen]}
-        expiringCount={expiringCount}
         onOpenDrawer={() => dispatch({ type: 'drawer/set', open: true })}
       />
 

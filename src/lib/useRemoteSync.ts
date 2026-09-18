@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useRef, useState, type Dispatch } from 'react';
 import { snapshotOf, type Action, type PlannerState } from '../state/planner';
-import { loadSnapshot, seedSnapshot, writeChanges, type Snapshot } from './remote';
+import { loadSnapshot, writeChanges, type Snapshot } from './remote';
 import { currentSession, onAuthChange, signOut } from './supabase/auth';
 import { isConfigured } from './supabase/client';
 
@@ -14,18 +14,19 @@ export interface RemoteSync {
   signOut: () => void;
 }
 
+const NOTHING: Snapshot = { pantry: [], plan: [], grocery: [] };
+
 /**
- * Mirrors the reducer into Supabase: hydrate on sign-in, seed a brand-new account with the
- * starting fridge, then write only what changed on every subsequent state change.
- * With no credentials configured the whole thing stays out of the way and the app runs in memory.
+ * Mirrors the reducer into Supabase: hydrate on sign-in, then write only what changed on every
+ * subsequent state change. Supabase is the only source of the fridge, the week and the list — an
+ * account with no rows starts empty rather than being filled from anything in the bundle.
  */
 export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): RemoteSync {
-  const [phase, setPhase] = useState<Phase>(isConfigured ? 'booting' : 'ready');
+  // Nothing to show without credentials, so the sign-in page says so rather than the app opening.
+  const [phase, setPhase] = useState<Phase>(isConfigured ? 'booting' : 'signed-out');
   const [session, setSession] = useState<Session | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const synced = useRef<Snapshot | null>(null);
-  const latest = useRef(state);
-  latest.current = state;
 
   useEffect(() => {
     if (!isConfigured) return;
@@ -51,17 +52,10 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
 
     (async () => {
       try {
-        const stored = await loadSnapshot(userId);
+        const stored = (await loadSnapshot(userId)) ?? NOTHING;
         if (cancelled) return;
-        if (stored) {
-          dispatch({ type: 'state/hydrate', snapshot: stored });
-          synced.current = stored;
-        } else {
-          const starting = snapshotOf(latest.current);
-          await seedSnapshot(userId, starting);
-          if (cancelled) return;
-          synced.current = starting;
-        }
+        dispatch({ type: 'state/hydrate', snapshot: stored });
+        synced.current = stored;
         setSaveFailed(false);
       } catch (error) {
         console.error('Could not load your saved fridge', error);

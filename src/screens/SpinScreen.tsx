@@ -3,7 +3,7 @@ import type { Dispatch } from 'react';
 import { CookIcons, CookTrack } from '../components/CookLoader';
 import Reel from '../components/Reel';
 import { REELS, REEL_LABELS } from '../data/seed';
-import { dishName, pantryOf, pickedNames } from '../engine/reel';
+import { daysLeft, dishName, pantryOf, pickedNames } from '../engine/reel';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './SpinScreen.module.css';
 
@@ -68,8 +68,9 @@ export default function SpinScreen({ state, dispatch, onSpin }: SpinScreenProps)
           <div className={styles.tags}>
             {names.map((name) => {
               const stocked = pantryOf(state.pantry, name);
-              const stateName = !stocked ? 'missing' : stocked.days <= 3 ? 'soon' : 'stocked';
-              const label = !stocked ? `${name} · to buy` : stocked.days <= 3 ? `${name} · use it up` : name;
+              const urgent = stocked !== undefined && daysLeft(stocked) <= 3;
+              const stateName = !stocked ? 'missing' : urgent ? 'soon' : 'stocked';
+              const label = !stocked ? `${name} · to buy` : urgent ? `${name} · use it up` : name;
               return (
                 <span key={name} className={styles.tag} data-state={stateName}>
                   {label}

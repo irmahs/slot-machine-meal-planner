@@ -37,37 +37,37 @@
   color: var(--text-tertiary);
 }
 
-.stepper {
+.expiry {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: var(--raised);
   border-radius: var(--radius-pill);
-  padding: 5px 8px;
+  padding: 5px 12px 5px 14px;
 }
 
-.step {
-  position: relative;
-  width: 26px;
+.expiryLabel {
+  flex: none;
+  white-space: nowrap;
+  font: 700 10px/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.date {
   height: 26px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--border);
-  color: var(--badge-ink);
-  cursor: pointer;
-  font: 700 15px/1 var(--font-body);
-}
-
-.step::after {
-  content: '';
-  position: absolute;
-  inset: -9px;
-}
-
-.days {
+  background: transparent;
+  outline: none;
   font: 700 12px/1 var(--font-body);
-  min-width: 44px;
-  text-align: center;
+  color: var(--text);
+}
+
+.date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
 }
 
 .add {

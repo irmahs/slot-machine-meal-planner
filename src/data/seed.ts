@@ -1,4 +1,3 @@
-import { addDaysISO } from '../lib/dates';
 import type { UnitCode } from './units';
 
 export type Diet = 'meat' | 'fish' | 'veg';
@@ -11,7 +10,8 @@ export interface ReelItem {
 
 export interface PantryItem {
   name: string;
-  days: number;
+  /** The last day it is good for, as an ISO date. Days remaining are derived from it. */
+  expiresOn: string;
   qty: number;
   unit: UnitCode;
 }
@@ -88,39 +88,3 @@ export const SINGULAR: Record<string, string> = {
   'Firm Tofu': 'Tofu',
 };
 
-export const SEED_PANTRY: PantryItem[] = [
-  { name: 'Chicken Thighs', days: 2, qty: 600, unit: 'g' },
-  { name: 'Baby Spinach', days: 1, qty: 1, unit: 'bag' },
-  { name: 'Zucchini', days: 3, qty: 2, unit: 'piece' },
-  { name: 'Jasmine Rice', days: 90, qty: 1.5, unit: 'kg' },
-  { name: 'Eggs', days: 9, qty: 8, unit: 'piece' },
-  { name: 'Mushrooms', days: 4, qty: 250, unit: 'g' },
-  { name: 'Corn Tortillas', days: 12, qty: 10, unit: 'piece' },
-  { name: 'Firm Tofu', days: 6, qty: 1, unit: 'block' },
-];
-
-export function seedPlan(): PlanEntry[] {
-  return [
-    {
-      dish: 'Tofu Tacos with blistered peppers',
-      sub: 'Used up the peppers · 2 portions left',
-      ingredients: ['Firm Tofu', 'Bell Peppers', 'Corn Tortillas'],
-    },
-    {
-      dish: 'Salmon Rice Bowl with charred broccoli',
-      sub: 'Rescued salmon on its last day',
-      ingredients: ['Salmon Fillet', 'Broccoli', 'Jasmine Rice'],
-    },
-    {
-      dish: 'Chickpea Orzo Skillet with wilted spinach',
-      sub: 'Pantry-only pull',
-      ingredients: ['Chickpeas', 'Baby Spinach', 'Orzo'],
-    },
-  ].map((entry, i) => ({ ...entry, id: crypto.randomUUID(), cookedOn: addDaysISO(-(i + 1)) }));
-}
-
-export const SEED_GROCERY: GroceryItem[] = [
-  { name: 'Broccoli', qty: 1, unit: 'bunch', acquired: false },
-  { name: 'Bell Peppers', qty: 2, unit: 'piece', acquired: false },
-  { name: 'Salmon Fillet', qty: 300, unit: 'g', acquired: true },
-];
