@@ -1,9 +1,10 @@
-import type { Dispatch } from 'react';
-import type { DietRule } from '../engine/reel';
+import { useMemo, type Dispatch } from 'react';
+import CategoryIcon from '../components/CategoryIcon';
+import { CATEGORIES } from '../data/categories';
+import { reelsFrom } from '../engine/reel';
 import type { Action, PlannerState, RepeatWindow } from '../state/planner';
 import styles from './RulesScreen.module.css';
 
-const DIETS: DietRule[] = ['Vegetarian', 'Pescatarian', 'No red meat', 'Gluten-free'];
 const WINDOWS: RepeatWindow[] = [3, 5, 7, 14];
 
 interface RulesScreenProps {
@@ -12,23 +13,27 @@ interface RulesScreenProps {
 }
 
 export default function RulesScreen({ state, dispatch }: RulesScreenProps) {
+  const reels = useMemo(() => reelsFrom(state.pantry), [state.pantry]);
+
   return (
     <div className={styles.screen}>
       <section>
-        <h2 className={styles.kicker}>What stays off the reels</h2>
-        <div className={styles.chips}>
-          {DIETS.map((diet) => (
-            <button
-              key={diet}
-              type="button"
-              className={styles.chip}
-              aria-pressed={state.diets.includes(diet)}
-              onClick={() => dispatch({ type: 'rules/toggleDiet', diet })}
-            >
-              {diet}
-            </button>
+        <h2 className={styles.kicker}>What the reels have to draw from</h2>
+        <div className={styles.stock}>
+          {CATEGORIES.map((category, k) => (
+            <div key={category.code} className={styles.reel} data-empty={reels[k].length === 0}>
+              <span className={styles.mark}>
+                <CategoryIcon category={category.code} size={20} />
+              </span>
+              <span className={styles.reelCount}>{reels[k].length}</span>
+              <span className={styles.reelLabel}>{category.label}</span>
+            </div>
           ))}
         </div>
+        <p className={styles.footnote}>
+          A reel holds whatever in the fridge carries that category. An ingredient’s category is set
+          once, when you create it, and every empty reel stops the draw.
+        </p>
       </section>
 
       <section className={styles.card}>

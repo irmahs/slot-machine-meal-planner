@@ -3,7 +3,7 @@ import styles from './App.module.css';
 import Drawer from './components/Drawer';
 import TopBar from './components/TopBar';
 import SignIn from './components/SignIn';
-import { SETTLE_MS, planSpin } from './engine/reel';
+import { SETTLE_MS, planSpin, reelsFrom } from './engine/reel';
 import { DESKTOP, useMediaQuery } from './lib/useMediaQuery';
 import { useRemoteSync } from './lib/useRemoteSync';
 import CookedScreen from './screens/CookedScreen';
@@ -23,7 +23,7 @@ const TITLES: Record<Screen, string> = {
 
 export default function App() {
   const [state, dispatch] = useReducer(plannerReducer, undefined, createInitialState);
-  const { phase, email, saveFailed, signOut } = useRemoteSync(state, dispatch);
+  const { phase, email, guest, saveFailed, signOut, startGuest } = useRemoteSync(state, dispatch);
   const docked = useMediaQuery(DESKTOP);
   const timers = useRef<number[]>([]);
 
@@ -36,15 +36,14 @@ export default function App() {
   const spin = useCallback(() => {
     if (spinning) return;
     const plan = planSpin(state.idx, state.locks, {
-      pantry: state.pantry,
-      diets: state.diets,
+      reels: reelsFrom(state.pantry),
       weighting: state.weighting,
     });
     dispatch({ type: 'spin/start', plan });
     timers.current.push(
       window.setTimeout(() => dispatch({ type: 'spin/settle', targets: plan.targets }), SETTLE_MS),
     );
-  }, [spinning, state.idx, state.locks, state.pantry, state.diets, state.weighting]);
+  }, [spinning, state.idx, state.locks, state.pantry, state.weighting]);
 
   const kickers: Record<Screen, string> = {
     spin: 'Tonight',
@@ -54,7 +53,7 @@ export default function App() {
     setup: 'Constraints',
   };
 
-  if (phase === 'signed-out') return <SignIn />;
+  if (phase === 'signed-out') return <SignIn onGuest={startGuest} />;
   if (phase === 'booting') return <div className={styles.app} />;
 
   return (
@@ -81,6 +80,7 @@ export default function App() {
         screen={state.screen}
         pantryCount={state.pantry.length}
         email={email}
+        guest={guest}
         saveFailed={saveFailed}
         onClose={() => dispatch({ type: 'drawer/set', open: false })}
         onNavigate={(screen) => dispatch({ type: 'screen/go', screen })}

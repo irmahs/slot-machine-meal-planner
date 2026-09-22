@@ -1,9 +1,12 @@
 import type { Dispatch } from 'react';
-import type { PantryItem } from '../data/seed';
+import CategoryIcon from '../components/CategoryIcon';
+import IngredientPicker from '../components/IngredientPicker';
+import QuantityField from '../components/QuantityField';
+import { labelOf } from '../data/categories';
+import type { PantryItem } from '../data/model';
+import { formatQuantity } from '../data/units';
 import { daysLeft } from '../engine/reel';
 import { todayISO } from '../lib/dates';
-import QuantityField from '../components/QuantityField';
-import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './FridgeScreen.module.css';
 
@@ -46,16 +49,14 @@ export default function FridgeScreen({ state, dispatch }: FridgeScreenProps) {
         }}
       >
         <div className={styles.line}>
-          <input
-            className={styles.input}
+          <IngredientPicker
+            target="pantry"
+            state={state}
+            dispatch={dispatch}
             value={state.draftName}
-            placeholder="Add an item…"
-            aria-label="Item name"
-            onChange={(e) => dispatch({ type: 'pantry/draftName', value: e.target.value })}
+            onSelect={(value) => dispatch({ type: 'pantry/select', value })}
+            placeholder="Choose an ingredient…"
           />
-          <button type="submit" className={styles.add}>
-            Add
-          </button>
         </div>
 
         <div className={styles.line}>
@@ -78,15 +79,31 @@ export default function FridgeScreen({ state, dispatch }: FridgeScreenProps) {
             />
           </label>
         </div>
+
+        <div className={styles.line}>
+          <button type="submit" className={styles.add} disabled={!state.draftName}>
+            Add to the fridge
+          </button>
+        </div>
       </form>
 
-      {rows.length === 0 && <p className={styles.empty}>Nothing in the fridge — the reels have little to go on.</p>}
+      {state.catalogue.length === 0 && (
+        <p className={styles.empty}>
+          No ingredients yet. Tap <strong>New</strong> to name one and say which reel it spins on.
+        </p>
+      )}
+
+      {state.catalogue.length > 0 && rows.length === 0 && (
+        <p className={styles.empty}>Nothing in the fridge — the reels have nothing to draw from.</p>
+      )}
 
       {rows.map((item) => {
         const window = windowOf(item);
         return (
           <div key={item.name} className={styles.row} data-window={window} data-soon={window === 'soon'}>
-            <div className={styles.pip} />
+            <span className={styles.mark} title={labelOf(item.category)} aria-label={labelOf(item.category)}>
+              <CategoryIcon category={item.category} size={18} />
+            </span>
             <div className={styles.body}>
               <div className={styles.name}>{item.name}</div>
               <div className={styles.sub}>{subFor(item)}</div>

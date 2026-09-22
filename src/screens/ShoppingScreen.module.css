@@ -27,32 +27,35 @@
   align-items: center;
 }
 
-.input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  outline: none;
-  font: 500 14px/1 var(--font-body);
-  color: var(--text);
-  padding: 0 12px;
-  height: 38px;
-}
-
-.input::placeholder {
-  color: var(--text-tertiary);
-}
-
 .add {
-  flex: none;
-  height: 38px;
+  flex: 1;
+  height: 44px;
   padding: 0 18px;
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--terracotta);
   color: var(--on-terracotta);
   cursor: pointer;
-  font: 700 12.5px/1 var(--font-body);
+  font: 700 13px/1 var(--font-body);
+}
+
+.add:disabled {
+  background: var(--border);
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+/* Which reel this will spin on once it is stocked. */
+.mark {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+  color: var(--text-secondary);
 }
 
 .row {

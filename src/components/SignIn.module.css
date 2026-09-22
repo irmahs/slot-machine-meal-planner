@@ -75,3 +75,30 @@
 .status[data-tone='error'] {
   color: var(--terracotta-deep);
 }
+
+.or {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 1.5px solid var(--border);
+}
+
+.guest {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 2.75px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: 700 13px/1 var(--font-body);
+}
+
+.guestNote {
+  font: 500 12px/1.5 var(--font-body);
+  color: var(--text-secondary);
+  margin: 0;
+  text-wrap: pretty;
+}

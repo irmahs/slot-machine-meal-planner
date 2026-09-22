@@ -1,5 +1,8 @@
 import type { Dispatch } from 'react';
+import CategoryIcon from '../components/CategoryIcon';
+import IngredientPicker from '../components/IngredientPicker';
 import QuantityField from '../components/QuantityField';
+import { labelOf } from '../data/categories';
 import { formatQuantity } from '../data/units';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './ShoppingScreen.module.css';
@@ -13,8 +16,8 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
   return (
     <div className={styles.screen}>
       <p className={styles.intro}>
-        Pulled from dishes you said yes to, minus whatever’s already in the fridge. Add anything else
-        yourself.
+        What to pick up. <strong>Stock</strong> moves an item straight into the fridge, where the
+        reels can draw it.
       </p>
 
       <form
@@ -25,16 +28,14 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
         }}
       >
         <div className={styles.line}>
-          <input
-            className={styles.input}
+          <IngredientPicker
+            target="grocery"
+            state={state}
+            dispatch={dispatch}
             value={state.draftGroc}
-            placeholder="Add to the list…"
-            aria-label="Shopping list item"
-            onChange={(e) => dispatch({ type: 'grocery/draft', value: e.target.value })}
+            onSelect={(value) => dispatch({ type: 'grocery/select', value })}
+            placeholder="Choose an ingredient…"
           />
-          <button type="submit" className={styles.add}>
-            Add
-          </button>
         </div>
 
         <div className={styles.line}>
@@ -44,6 +45,9 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
             onQuantity={(value) => dispatch({ type: 'grocery/draftQty', value })}
             onUnit={(unit) => dispatch({ type: 'grocery/draftUnit', unit })}
           />
+          <button type="submit" className={styles.add} disabled={!state.draftGroc}>
+            Add
+          </button>
         </div>
       </form>
 
@@ -59,6 +63,9 @@ export default function ShoppingScreen({ state, dispatch }: ShoppingScreenProps)
           >
             <span className={styles.box} aria-hidden="true">
               {item.acquired ? '✓' : ''}
+            </span>
+            <span className={styles.mark} aria-label={labelOf(item.category)}>
+              <CategoryIcon category={item.category} size={16} />
             </span>
             <span className={styles.body}>
               <span className={styles.name}>{item.name}</span>

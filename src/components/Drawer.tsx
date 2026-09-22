@@ -16,6 +16,8 @@ interface DrawerProps {
   screen: Screen;
   pantryCount: number;
   email: string | null;
+  /** Looking around without an account: say so, since none of it is being kept. */
+  guest: boolean;
   saveFailed: boolean;
   onClose: () => void;
   onNavigate: (screen: Screen) => void;
@@ -28,6 +30,7 @@ export default function Drawer({
   screen,
   pantryCount,
   email,
+  guest,
   saveFailed,
   onClose,
   onNavigate,
@@ -70,16 +73,19 @@ export default function Drawer({
         ))}
         <div className={styles.spacer} />
         {saveFailed && <div className={styles.warning}>Not saved — check your connection.</div>}
-        {email && (
+        {guest && (
+          <div className={styles.warning}>Just looking — this basket goes when the tab closes.</div>
+        )}
+        {(email || guest) && (
           <div className={styles.account}>
-            <span className={styles.email}>{email}</span>
+            <span className={styles.email}>{guest ? 'Guest' : email}</span>
             <button
               type="button"
               className={styles.signOut}
               tabIndex={visible ? 0 : -1}
               onClick={onSignOut}
             >
-              Sign out
+              {guest ? 'Sign in' : 'Sign out'}
             </button>
           </div>
         )}

@@ -1,9 +1,9 @@
-import { ChefHat } from 'lucide-react';
-import type { Dispatch } from 'react';
+import { useMemo, type Dispatch } from 'react';
+import CategoryIcon from '../components/CategoryIcon';
 import { CookIcons, CookTrack } from '../components/CookLoader';
 import Reel from '../components/Reel';
-import { REELS, REEL_LABELS } from '../data/seed';
-import { daysLeft, dishName, pantryOf, pickedNames } from '../engine/reel';
+import { CATEGORIES, labelOf, type CategoryCode } from '../data/categories';
+import { canSpin, daysLeft, dishName, emptyReels, pantryOf, reelsFrom } from '../engine/reel';
 import type { Action, PlannerState } from '../state/planner';
 import styles from './SpinScreen.module.css';
 
@@ -13,16 +13,25 @@ interface SpinScreenProps {
   onSpin: () => void;
 }
 
+function listOf(labels: string[]): string {
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+}
+
 export default function SpinScreen({ state, dispatch, onSpin }: SpinScreenProps) {
+  const reels = useMemo(() => reelsFrom(state.pantry), [state.pantry]);
+  const ready = canSpin(reels);
   const settled = state.picked !== null && !state.spinning;
-  const names = state.picked ? pickedNames(state.picked) : null;
   const weekday = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
 
-  const hint = state.spinning
-    ? 'Turning over…'
-    : settled
-      ? 'Tap a column to keep it.'
-      : 'Tap to draw three.';
+  const missing = emptyReels(reels).map(labelOf);
+  const hint = !ready
+    ? `Add ${listOf(missing.map((m) => m.toLowerCase()))} to the fridge to draw.`
+    : state.spinning
+      ? 'Turning over…'
+      : settled
+        ? 'Tap a column to keep it.'
+        : 'Tap to draw three.';
 
   return (
     <div className={styles.screen}>
@@ -34,12 +43,11 @@ export default function SpinScreen({ state, dispatch, onSpin }: SpinScreenProps)
 
       <div className={styles.reels}>
         <div className={styles.payline} />
-        {REELS.map((items, k) => (
+        {reels.map((items, k) => (
           <Reel
-            key={REEL_LABELS[k]}
+            key={CATEGORIES[k].code}
             items={items}
-            label={REEL_LABELS[k]}
-            pantry={state.pantry}
+            label={CATEGORIES[k].label}
             offset={state.idx[k]}
             duration={state.dur[k]}
             locked={state.locks[k]}
@@ -49,7 +57,12 @@ export default function SpinScreen({ state, dispatch, onSpin }: SpinScreenProps)
       </div>
 
       <div className={styles.draw}>
-        <button type="button" className={styles.drawButton} onClick={onSpin} disabled={state.spinning}>
+        <button
+          type="button"
+          className={styles.drawButton}
+          onClick={onSpin}
+          disabled={state.spinning || !ready}
+        >
           Draw three
         </button>
         <p className={styles.hint} aria-live="polite">
@@ -57,23 +70,28 @@ export default function SpinScreen({ state, dispatch, onSpin }: SpinScreenProps)
         </p>
       </div>
 
-      {names && settled ? (
+      {state.picked && settled ? (
         <div className={styles.recipe}>
-          {/* The recipe image slot — wire to a real image source when the product has one. */}
-          <div className={styles.photo} role="img" aria-label="Dish photo to come">
-            <ChefHat size={44} strokeWidth={2.75} />
+          {/* Three marks, one per reel — the dish has no photograph to show. */}
+          <div className={styles.icons} role="img" aria-label="Protein, fibre and grain">
+            {CATEGORIES.map((category, k) =>
+              state.picked?.[k] ? (
+                <span key={category.code} className={styles.icon} data-reel={category.code}>
+                  <CategoryIcon category={category.code as CategoryCode} size={26} />
+                </span>
+              ) : null,
+            )}
           </div>
           <div className={styles.kicker}>This evening</div>
-          <h2 className={styles.dish}>{dishName(names)}</h2>
+          <h2 className={styles.dish}>{dishName(state.picked)}</h2>
           <div className={styles.tags}>
-            {names.map((name) => {
+            {state.picked.map((name) => {
+              if (!name) return null;
               const stocked = pantryOf(state.pantry, name);
               const urgent = stocked !== undefined && daysLeft(stocked) <= 3;
-              const stateName = !stocked ? 'missing' : urgent ? 'soon' : 'stocked';
-              const label = !stocked ? `${name} · to buy` : urgent ? `${name} · use it up` : name;
               return (
-                <span key={name} className={styles.tag} data-state={stateName}>
-                  {label}
+                <span key={name} className={styles.tag} data-state={urgent ? 'soon' : 'stocked'}>
+                  {urgent ? `${name} · use it up` : name}
                 </span>
               );
             })}
