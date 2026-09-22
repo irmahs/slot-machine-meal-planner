@@ -120,11 +120,20 @@ Three notes on the shape:
 
 1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
    project*. The Free plan allows two active projects per account.
-2. **Create the tables** — Dashboard → *SQL Editor* → *New query*, paste the schema SQL, run it. It
-   creates the seven tables above and turns on row-level security so each row is readable only by
-   its owner. The script is kept outside the repo; it is safe to re-run. If you ran an earlier
-   version of the schema, run the categories migration instead — it adds
-   `meal_planner_categories` and the `id_category` column to what you already have.
+2. **Apply the migrations** — the schema lives in `supabase/migrations/`, one timestamped file per
+   change, and the Supabase CLI applies whatever is not applied yet:
+
+   ```bash
+   npx supabase login                          # opens a browser, stores a token
+   npx supabase link --project-ref <your-ref>  # the ref from the project URL
+   npm run db:push                             # applies pending migrations
+   ```
+
+   `db push` records each file in the `supabase_migrations` schema, so it never runs one twice.
+   Every migration is also written to be idempotent — `if not exists`, `on conflict do update` —
+   which matters if you first built the database by pasting SQL into the editor: pushing then
+   replays both files over what is already there and changes nothing it does not need to.
+   Pasting a migration straight into *SQL Editor* still works if you would rather not link.
 3. **Turn on magic links** — *Authentication → Sign In / Providers → Email*: enable the provider and
    leave *Confirm email* on. Under *Authentication → URL Configuration* set the **Site URL** to where
    the app runs (`http://localhost:5173` for development) and add every other origin you use to
@@ -136,8 +145,17 @@ Three notes on the shape:
 
 A new account starts empty — no ingredients, no fridge. Create an ingredient from the Fridge
 screen's **New** button, or run the seed script, which fills a starting list, fridge, week and
-shopping list; it is kept outside the repo too, and it resolves your account by the address you
-sign in with, so run it only after a first sign-in has created that account.
+shopping list; it is kept outside the repo because it carries a real email address, and it
+resolves your account by that address, so run it only after a first sign-in has created the
+account.
+
+### Changing the schema
+
+Write a new migration rather than editing an applied one — `npx supabase migration new <name>`
+creates the timestamped file, and `npm run db:push` applies it. `npm run db:diff` shows what the
+linked database has that the migrations do not, which is how a change made by hand in the
+dashboard gets captured back into the repo. The two files there now are the whole history: the
+tables, then ingredient categories.
 
 Signing in loads your rows into the reducer; from then on the reducer is mirrored back into
 Postgres — write only what changed. The reducer stays the single source of truth in the session, so
@@ -190,6 +208,9 @@ name was taken, Vercel appends a suffix and the Site URL above would be wrong.
 ## Project structure
 
 ```
+supabase/
+  config.toml           CLI settings; carries no project identity, no secrets
+  migrations/           the schema's history, applied by `supabase db push`
 src/
   data/model.ts         the app's types — no ingredient data anywhere
   data/categories.ts    the three reels, mirroring meal_planner_categories
