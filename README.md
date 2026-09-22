@@ -14,8 +14,8 @@ loses track of what they have, so food expires and the same three dishes come ro
 | **Spin** | Three reels, a payline, and one button. Tap a column to hold it, draw again for the rest, then send the dish into the pot. |
 | **Fridge** | The inventory the reels weight by, soonest to go off first, with a use-by date on every item. |
 | **Cooked** | This week's history — what was drawn, and why it was drawn. |
-| **Shopping list** | Built from dishes you said yes to, minus whatever is already in the fridge. Items can be stocked straight into the fridge. |
-| **Reel rules** | Diet constraints, the no-repeat window, and the expiry weighting switch. |
+| **Shopping list** | What to pick up. Stocking an item moves it into the fridge, where the reels can draw it. |
+| **Reel rules** | What each reel currently holds, the no-repeat window, and the expiry weighting switch. |
 
 A burger drawer on the left moves between them.
 
@@ -30,20 +30,25 @@ the payline and the result is published. Locked reels keep whatever is already o
 **The weighting.** A pantry item stores the date it goes off, and days remaining are derived from
 that date every time they are read — so a fridge left alone for a week comes back a week more
 urgent. With weighting on, an item with two days left is worth `6` against a well-stocked item's
-`1` — about four times as likely to come up. Items not in the pantry are worth `0.7`, so the reels
-lean towards what you already have without ever excluding a shopping trip. Diet constraints filter
-the list before the weighted pick; if a filter empties a list, the unfiltered list is used rather
-than failing.
+`1` — about four times as likely to come up. Turn weighting off and every item on a reel weighs the
+same.
 
-**What the reels hold.** The three reels are a fixed catalogue of six ingredients each, defined in
-`src/data/seed.ts` — not a view of your fridge. That is deliberate: the reels can offer something
-you have to buy, and what is in the fridge changes the odds rather than the options. Each cell
-shows its own status, so `need to buy` sits under an ingredient you do not have.
+**What the reels hold: your fridge, nothing else.** `reelsFrom()` slices the pantry by category —
+one reel per category, soonest to go off at the top — and that is the whole of it. There is no
+ingredient catalogue in the source, so the app knows nothing about any particular food. A reel with
+nothing in it renders as *nothing yet · add a protein* and the draw stays disabled until all three
+have something, because a slot machine with an empty column has nothing to pull.
 
-**The dish name.** Composed from the three picks rather than looked up — a carb template
-(`Jasmine Rice → "{Protein} Rice Bowl"`) joined to a veg phrase (`Broccoli → "charred broccoli"`).
-Chicken + broccoli + rice becomes *Chicken Rice Bowl with charred broccoli*. There is no recipe
-corpus.
+**How an ingredient is categorised.** By a column, set by you, once. Every ingredient you create
+carries an `id_category` — Protein, Green or Grain — chosen in the same panel where you name it,
+and that column is the only thing that decides which reel it spins on. Nothing is inferred from the
+name, and nothing is guessed.
+
+**The dish name.** Composed from the three picks, never looked up. Four templates describe the
+*shape* of a name — `{protein} with {green} and {grain}`, `{grain} bowl with {protein} and
+{green}`, and two more — and a small hash of the three names picks one, so the same three picks
+always read the same way. It knows no recipes and no ingredients, which is what lets it name a dish
+out of three things you typed yourself.
 
 ## Stack
 
@@ -51,8 +56,8 @@ corpus.
 - Plain CSS: design tokens in `src/styles/tokens.css`, component styles in CSS modules
 - **Lucide** icons at stroke-width 2.75
 - **Vitest** over the reel engine — the spin maths, weighting, and dish naming
-- **Supabase** for storage and magic-link sign-in — required: it is where the fridge, the week and
-  the list come from
+- **Supabase** for storage and magic-link sign-in — where your ingredients, fridge, week and list
+  live
 
 ## Getting started
 
@@ -73,8 +78,12 @@ screen splits in two — reels on the left, tonight's dish on the right, so a dr
 the result below the fold. One breakpoint, `DESKTOP` in `src/lib/useMediaQuery.ts`, drives both the
 CSS and the drawer's docked state.
 
-Supabase credentials are required. Without them the app stops at the sign-in page and says it is
-not connected, rather than opening onto data that isn't yours.
+### Signing in, or not
+
+Signing in with a magic link puts everything in Supabase under your account. **Have a look around**
+opens a guest tab instead: a sample basket, every screen working, and the whole session held in
+`sessionStorage` — it survives a reload and is gone the moment the tab closes. Nothing a guest does
+reaches Supabase, which also means the app is usable with no credentials configured at all.
 
 ## Storage (Supabase)
 
@@ -89,7 +98,8 @@ the data follows the account even if the address changes.
 | Table | Columns | Holds |
 | --- | --- | --- |
 | `meal_planner_units` | `id`, `code`, `label` | The unit enum — piece, g, kg, ml, l, bag, block, pack, bunch, can. Shared reference data, not per user. |
-| `meal_planner_ingredients` | `id`, `user_id`, `name` | Every ingredient named once. The other tables point at it, so "Broccoli" is one thing everywhere. |
+| `meal_planner_categories` | `id`, `code`, `label` | The three reels — protein, green, grain. Shared reference data, not per user. |
+| `meal_planner_ingredients` | `id`, `user_id`, `name`, `id_category` | Your ingredient list. `id_category` is how an ingredient is categorised — set once, on creation, and the only thing that decides its reel. |
 | `meal_planner_pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `date_expiration` | What's in the fridge. `date_expiration` is picked on a date input and is what the reels weight by. |
 | `meal_planner_history` | `id`, `user_id`, `name_meal`, `note`, `date_cooked` | One row per dish sent into the pot. Drives the Cooked screen and its two stat cards. |
 | `meal_planner_history_ingredients` | `id_history`, `id_ingredient` | Which three ingredients a meal was drawn from. Separate table because a meal has three, not one. |
@@ -105,14 +115,16 @@ Three notes on the shape:
   it for the app's own model, and codes are resolved to ids at the boundary. A count in `piece`
   renders as `×2`, anything else as `600 g`.
 - **Reel rules are not stored.** Weighting is computed from `date_expiration` at draw time, so
-  there is no rules table; the diet chips and no-repeat window on the Reel rules screen live in
-  memory and reset on reload.
+  there is no rules table; the no-repeat window and the weighting switch live in memory and reset
+  on reload.
 
 1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
    project*. The Free plan allows two active projects per account.
 2. **Create the tables** — Dashboard → *SQL Editor* → *New query*, paste the schema SQL, run it. It
-   creates the six tables above and turns on row-level security so each row is readable only by its
-   owner. The script is kept outside the repo; it is safe to re-run.
+   creates the seven tables above and turns on row-level security so each row is readable only by
+   its owner. The script is kept outside the repo; it is safe to re-run. If you ran an earlier
+   version of the schema, run the categories migration instead — it adds
+   `meal_planner_categories` and the `id_category` column to what you already have.
 3. **Turn on magic links** — *Authentication → Sign In / Providers → Email*: enable the provider and
    leave *Confirm email* on. Under *Authentication → URL Configuration* set the **Site URL** to where
    the app runs (`http://localhost:5173` for development) and add every other origin you use to
@@ -122,9 +134,10 @@ Three notes on the shape:
    app and the anon key is the only one meant to ship in a bundle.
 5. `npm run dev`, enter your email, open the link from the same device.
 
-A new account starts empty — the app ships no sample fridge. A separate seed script fills one with
-a starting fridge, week and list; it is also kept outside the repo, and it resolves your account by
-the address you sign in with, so run it only after a first sign-in has created that account.
+A new account starts empty — no ingredients, no fridge. Create an ingredient from the Fridge
+screen's **New** button, or run the seed script, which fills a starting list, fridge, week and
+shopping list; it is kept outside the repo too, and it resolves your account by the address you
+sign in with, so run it only after a first sign-in has created that account.
 
 Signing in loads your rows into the reducer; from then on the reducer is mirrored back into
 Postgres — write only what changed. The reducer stays the single source of truth in the session, so
@@ -178,13 +191,16 @@ name was taken, Vercel appends a suffix and the Site URL above would be wrong.
 
 ```
 src/
-  data/seed.ts          reel lists and the dish-naming tables
+  data/model.ts         the app's types — no ingredient data anywhere
+  data/categories.ts    the three reels, mirroring meal_planner_categories
+  data/units.ts         the unit enum, mirroring meal_planner_units
   engine/               the machine: weighted pick, spin maths, dish naming
   state/planner.ts      all app state and every action over it
   lib/supabase/         client.ts (browser client), auth.ts (magic link, session, sign out)
   lib/remote.ts         load a snapshot, write only what changed
+  lib/guest.ts          the guest tab: one sessionStorage key, lost with the tab
   lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
-  components/           TopBar, Drawer, Reel, CookLoader, SignIn
+  components/           TopBar, Drawer, Reel, CookLoader, SignIn, IngredientPicker
   screens/              Spin, Fridge, Cooked, Shopping, Rules
   styles/               tokens.css (design tokens), base.css
 ```
@@ -212,7 +228,9 @@ Design rules that are load-bearing, not decoration:
 ## Not built, deliberately
 
 No onboarding. Cooking a dish refreshes an item's window rather than decrementing its quantity, so
-the number a row carries is what you put there. The dish photo is an empty slot waiting for a real
-image source. Reel rules are not persisted. Sync is last-write-wins with no realtime channel, so two
+the number a row carries is what you put there. An ingredient's category cannot be changed after
+it is created — remove the item and add it again. There are no diet filters: with the catalogue
+gone there is nothing to filter on, and tagging every ingredient with a diet as well as a category
+was more than the screen was worth. Reel rules are not persisted. Sync is last-write-wins with no realtime channel, so two
 devices editing at once will talk over each other. These are the obvious next increments, not
 oversights.

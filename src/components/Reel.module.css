@@ -88,3 +88,38 @@
   background: var(--basket-action);
   color: var(--basket-action-ink);
 }
+
+/* Names are typed by hand now, so a long one is clamped rather than pushing the cell apart. */
+.name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.column[data-empty='true'] {
+  cursor: default;
+  background: var(--basket-sunken);
+}
+
+.blank {
+  position: absolute;
+  inset: 0 0 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.column[data-empty='true'] .name {
+  color: var(--basket-ink-tertiary);
+}
+
+/* The fade blends into the card colour, which an empty column does not use. */
+.column[data-empty='true'] .fade {
+  display: none;
+}

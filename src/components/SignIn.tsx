@@ -5,7 +5,7 @@ import styles from './SignIn.module.css';
 
 type Status = { tone: 'idle' | 'error'; message: string };
 
-export default function SignIn() {
+export default function SignIn({ onGuest }: { onGuest: () => void }) {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<Status>({ tone: 'idle', message: '' });
@@ -31,7 +31,7 @@ export default function SignIn() {
       <p className={styles.blurb}>
         {isConfigured
           ? 'Your fridge, your week and your list live under your email address. Enter it and we’ll send a sign-in link — no password to remember.'
-          : 'Not connected to Supabase. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local and restart, then sign in here.'}
+          : 'Saving your fridge needs a database, and this copy isn’t connected to one yet. You can still have a look around.'}
       </p>
       <form className={styles.form} onSubmit={send}>
         <input
@@ -52,6 +52,15 @@ export default function SignIn() {
       <p className={styles.status} data-tone={status.tone} aria-live="polite">
         {status.message}
       </p>
+
+      <div className={styles.or}>
+        <button type="button" className={styles.guest} onClick={onGuest}>
+          Have a look around
+        </button>
+        <p className={styles.guestNote}>
+          No account, a basket to play with, and nothing saved — close the tab and it’s gone.
+        </p>
+      </div>
     </div>
   );
 }
