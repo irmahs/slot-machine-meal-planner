@@ -8,7 +8,7 @@ export const SETTLE_MS = 2500;
 
 export type Triple<T> = [T, T, T];
 
-/** One reel per category, in category order: Protein, Green, Grain. */
+/** One reel per category, in category order: Protein, Fibre, Grain. */
 export type Reels = Triple<PantryItem[]>;
 
 export interface PickContext {
@@ -142,12 +142,12 @@ const NAME_TEMPLATES: Array<(p: string, g: string, r: string) => string> = [
 ];
 
 export function dishName(names: Triple<string | null>): string {
-  const [protein, green, grain] = names;
+  const [protein, fibre, grain] = names;
   const present = names.filter((name): name is string => name !== null);
   if (!present.length) return 'Nothing drawn yet';
-  if (!protein || !green || !grain) return present.join(' & ');
+  if (!protein || !fibre || !grain) return present.join(' & ');
 
-  return NAME_TEMPLATES[hash(present.join('|')) % NAME_TEMPLATES.length](protein, green, grain);
+  return NAME_TEMPLATES[hash(present.join('|')) % NAME_TEMPLATES.length](protein, fibre, grain);
 }
 
 /** A small stable hash, so a given three picks always get the same one of the templates. */

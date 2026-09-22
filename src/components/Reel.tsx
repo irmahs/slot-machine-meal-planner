@@ -42,7 +42,7 @@ export default function Reel({ items, label, offset, duration, locked, onToggleL
       {empty ? (
         <div className={styles.blank}>
           <div className={styles.name}>nothing yet</div>
-          <div className={styles.note}>add a {label.toLowerCase()}</div>
+          <div className={styles.note}>add {label.toLowerCase()}</div>
         </div>
       ) : (
         <div

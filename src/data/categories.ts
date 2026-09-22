@@ -6,7 +6,7 @@
  */
 export const CATEGORIES = [
   { code: 'protein', label: 'Protein' },
-  { code: 'green', label: 'Green' },
+  { code: 'fibre', label: 'Fibre' },
   { code: 'grain', label: 'Grain' },
 ] as const;
 

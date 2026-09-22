@@ -2,7 +2,7 @@
 
 A mobile web app that decides dinner for you.
 
-Three reels — **Protein**, **Green**, **Grain** — spin from what is actually in your fridge,
+Three reels — **Protein**, **Fibre**, **Grain** — spin from what is actually in your fridge,
 weighted so items closest to expiring come up more often. Lock any column you like, draw the
 rest again, then commit the dish to your week. Built for someone who wants to meal-prep but
 loses track of what they have, so food expires and the same three dishes come round on repeat.
@@ -40,13 +40,13 @@ nothing in it renders as *nothing yet · add a protein* and the draw stays disab
 have something, because a slot machine with an empty column has nothing to pull.
 
 **How an ingredient is categorised.** By a column, set by you, once. Every ingredient you create
-carries an `id_category` — Protein, Green or Grain — chosen in the same panel where you name it,
+carries an `id_category` — Protein, Fibre or Grain — chosen in the same panel where you name it,
 and that column is the only thing that decides which reel it spins on. Nothing is inferred from the
 name, and nothing is guessed.
 
 **The dish name.** Composed from the three picks, never looked up. Four templates describe the
-*shape* of a name — `{protein} with {green} and {grain}`, `{grain} bowl with {protein} and
-{green}`, and two more — and a small hash of the three names picks one, so the same three picks
+*shape* of a name — `{protein} with {fibre} and {grain}`, `{grain} bowl with {protein} and
+{fibre}`, and two more — and a small hash of the three names picks one, so the same three picks
 always read the same way. It knows no recipes and no ingredients, which is what lets it name a dish
 out of three things you typed yourself.
 
@@ -98,7 +98,7 @@ the data follows the account even if the address changes.
 | Table | Columns | Holds |
 | --- | --- | --- |
 | `meal_planner_units` | `id`, `code`, `label` | The unit enum — piece, g, kg, ml, l, bag, block, pack, bunch, can. Shared reference data, not per user. |
-| `meal_planner_categories` | `id`, `code`, `label` | The three reels — protein, green, grain. Shared reference data, not per user. |
+| `meal_planner_categories` | `id`, `code`, `label` | The three reels — protein, fibre, grain. Shared reference data, not per user. |
 | `meal_planner_ingredients` | `id`, `user_id`, `name`, `id_category` | Your ingredient list. `id_category` is how an ingredient is categorised — set once, on creation, and the only thing that decides its reel. |
 | `meal_planner_pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `date_expiration` | What's in the fridge. `date_expiration` is picked on a date input and is what the reels weight by. |
 | `meal_planner_history` | `id`, `user_id`, `name_meal`, `note`, `date_cooked` | One row per dish sent into the pot. Drives the Cooked screen and its two stat cards. |

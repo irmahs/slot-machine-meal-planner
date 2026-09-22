@@ -73,7 +73,7 @@ export default function SpinScreen({ state, dispatch, onSpin }: SpinScreenProps)
       {state.picked && settled ? (
         <div className={styles.recipe}>
           {/* Three marks, one per reel — the dish has no photograph to show. */}
-          <div className={styles.icons} role="img" aria-label="Protein, green and grain">
+          <div className={styles.icons} role="img" aria-label="Protein, fibre and grain">
             {CATEGORIES.map((category, k) =>
               state.picked?.[k] ? (
                 <span key={category.code} className={styles.icon} data-reel={category.code}>

@@ -27,8 +27,8 @@ const PANTRY: PantryItem[] = [
   item('Chicken Thighs', 'protein', 2, 600, 'g'),
   item('Firm Tofu', 'protein', 6, 1, 'block'),
   item('Eggs', 'protein', 40, 6),
-  item('Baby Spinach', 'green', 1, 1, 'bag'),
-  item('Zucchini', 'green', 3, 2),
+  item('Baby Spinach', 'fibre', 1, 1, 'bag'),
+  item('Zucchini', 'fibre', 3, 2),
   item('Jasmine Rice', 'grain', 90, 1.5, 'kg'),
   item('Corn Tortillas', 'grain', 8, 1, 'pack'),
 ];
@@ -39,7 +39,7 @@ const ctx: PickContext = { reels, weighting: true };
 describe('reels from the fridge', () => {
   it('slices the pantry into one reel per category', () => {
     expect(reels.map((list) => list.length)).toEqual([3, 2, 2]);
-    expect(reels[1].every((i) => i.category === 'green')).toBe(true);
+    expect(reels[1].every((i) => i.category === 'fibre')).toBe(true);
   });
 
   it('puts the soonest to go off at the top of a column', () => {
@@ -50,7 +50,7 @@ describe('reels from the fridge', () => {
     const none = reelsFrom([]);
     expect(none.map((list) => list.length)).toEqual([0, 0, 0]);
     expect(canSpin(none)).toBe(false);
-    expect(emptyReels(none)).toEqual(['protein', 'green', 'grain']);
+    expect(emptyReels(none)).toEqual(['protein', 'fibre', 'grain']);
   });
 
   it('names the reel that is holding the draw up', () => {
@@ -105,8 +105,8 @@ describe('planSpin', () => {
   });
 
   it('leaves an empty reel alone rather than dividing by nothing', () => {
-    const noGreen = reelsFrom(PANTRY.filter((i) => i.category !== 'green'));
-    const plan = planSpin(idx, [false, false, false], { reels: noGreen, weighting: true });
+    const noFibre = reelsFrom(PANTRY.filter((i) => i.category !== 'fibre'));
+    const plan = planSpin(idx, [false, false, false], { reels: noFibre, weighting: true });
     expect(plan.targets[1]).toBe(0);
     expect(plan.durations[1]).toBe('0s');
     expect(Number.isNaN(plan.idx[1])).toBe(false);

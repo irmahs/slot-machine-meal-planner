@@ -4,7 +4,7 @@ import type { CategoryCode } from '../data/categories';
 /** One mark per reel. The dish card draws its three picks with these instead of a photo. */
 const ICONS: Record<CategoryCode, LucideIcon> = {
   protein: Drumstick,
-  green: Salad,
+  fibre: Salad,
   grain: Wheat,
 };
 
