@@ -4,6 +4,6 @@
 project_id = "spin-supper"
 
 [db]
-# Match the Postgres major version your hosted project runs, so a local
-# `supabase start` behaves like production.
-major_version = 15
+# Matches the hosted project (Postgres 17.6), so a local `supabase start`
+# behaves like production.
+major_version = 17
