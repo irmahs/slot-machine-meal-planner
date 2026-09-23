@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 import { loadVocab } from '../data/vocab';
 import { snapshotOf, type Action, type PlannerState } from '../state/planner';
+import { loadDemo } from './demo';
 import * as guest from './guest';
 import { EMPTY, loadSnapshot, writeChanges, type Snapshot } from './remote';
 import { currentSession, onAuthChange, signOut as supabaseSignOut } from './supabase/auth';
@@ -23,7 +24,7 @@ export interface RemoteSync {
   guest: boolean;
   saveFailed: boolean;
   signOut: () => void;
-  startGuest: () => void;
+  startGuest: () => void | Promise<void>;
 }
 
 /**
@@ -140,14 +141,23 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
       });
   }, [state, userId, phase, isGuest]);
 
-  const startGuest = useCallback(() => {
-    if (!vocabReady) return;
-    guest.startGuest();
-    dispatch({ type: 'state/hydrate', snapshot: EMPTY });
-    synced.current = EMPTY;
+  const starting = useRef(false);
+  const startGuest = useCallback(async () => {
+    if (!vocabReady || starting.current) return;
+    starting.current = true;
+    // The demo is a nicety: if it cannot be read, the guest starts empty rather
+    // than not at all.
+    const start = await loadDemo(vocab).catch((error) => {
+      console.error('Could not load the demo pantry', error);
+      return EMPTY;
+    });
+    starting.current = false;
+    guest.startGuest(start);
+    dispatch({ type: 'state/hydrate', snapshot: start });
+    synced.current = start;
     setIsGuest(true);
     setPhase('ready');
-  }, [vocabReady, dispatch]);
+  }, [vocabReady, vocab, dispatch]);
 
   const signOut = useCallback(() => {
     if (isGuest) {

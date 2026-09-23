@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Regenerates src/test/vocab.json from the migration, so the tests read the
-# same vocabulary the database holds instead of a hand-kept copy of it.
+# Regenerates the test fixtures from the migrations, so the tests read the same
+# rows the database holds instead of a hand-kept copy of them:
 #
-#   scripts/vocab-fixture.sh              # writes src/test/vocab.json
-#   OUT=/elsewhere.json scripts/vocab-fixture.sh
+#   src/test/vocab.json   the eight reference tables
+#   src/test/demo.json    the four demo tables
+#
+#   scripts/vocab-fixture.sh              # writes both into src/test/
+#   OUT=/some/dir scripts/vocab-fixture.sh
 #
 # Needs a local Postgres (initdb/pg_ctl/psql on PATH). Starts a throwaway
 # cluster, applies every migration, dumps each reference table as JSON, stops.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-out=${OUT:-src/test/vocab.json}
+out=${OUT:-src/test}
 
 dir=$(mktemp -d)
 trap 'pg_ctl -D "$dir/data" stop -m immediate >/dev/null 2>&1 || true; rm -rf "$dir"' EXIT
@@ -25,15 +28,21 @@ q -c "create schema auth;
       create role authenticated; create role anon;"
 for f in supabase/migrations/*.sql; do q -f "$f" >/dev/null; done
 
-tables=(categories protein_kinds vegetable_kinds starch_kinds dish_styles units cooking_methods diet_rules)
-{
-  echo "{"
-  for i in "${!tables[@]}"; do
-    t="meal_planner_${tables[$i]}"
-    order=$([ "$t" = meal_planner_categories ] && echo position || echo id)
-    sep=$([ "$i" -lt $((${#tables[@]} - 1)) ] && echo "," || echo "")
-    printf '  "%s": %s%s\n' "$t" "$(q -c "select coalesce(json_agg(t order by $order), '[]') from public.$t t")" "$sep"
-  done
-  echo "}"
-} > "$out"
-echo "wrote $out"
+dump() {
+  local file=$1; shift
+  local tables=("$@")
+  {
+    echo "{"
+    for i in "${!tables[@]}"; do
+      t="meal_planner_${tables[$i]}"
+      order=$([ "$t" = meal_planner_categories ] && echo position || echo 1)
+      sep=$([ "$i" -lt $((${#tables[@]} - 1)) ] && echo "," || echo "")
+      printf '  "%s": %s%s\n' "$t" "$(q -c "select coalesce(json_agg(t order by $order), '[]') from public.$t t")" "$sep"
+    done
+    echo "}"
+  } > "$out/$file"
+  echo "wrote $out/$file"
+}
+
+dump vocab.json categories protein_kinds vegetable_kinds starch_kinds dish_styles units cooking_methods diet_rules
+dump demo.json demo_ingredients demo_ingredient_methods demo_pantry demo_shopping_list

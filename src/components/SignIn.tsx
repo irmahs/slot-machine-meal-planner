@@ -5,12 +5,13 @@ import { isConfigured } from '../lib/supabase/client';
 type Status = { tone: 'idle' | 'error'; message: string };
 
 interface Props {
-  onGuest: () => void;
+  onGuest: () => void | Promise<void>;
   /** The reference tables could not be read, so there is no app to open. */
   unavailable?: boolean;
 }
 
 export default function SignIn({ onGuest, unavailable = false }: Props) {
+  const [opening, setOpening] = useState(false);
   const connected = isConfigured && !unavailable;
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -62,11 +63,20 @@ export default function SignIn({ onGuest, unavailable = false }: Props) {
       </p>
 
       <div className="signin-or">
-        <button type="button" className="signin-guest" onClick={onGuest} disabled={!connected}>
-          Have a look around
+        <button
+          type="button"
+          className="signin-guest"
+          disabled={!connected || opening}
+          onClick={async () => {
+            setOpening(true);
+            await onGuest();
+            setOpening(false);
+          }}
+        >
+          {opening ? 'Opening…' : 'Have a look around'}
         </button>
         <p className="signin-guestNote">
-          No account. Start from an empty pantry, and nothing is kept — close the tab and it’s gone.
+          No account. A demo pantry to play with, and nothing is kept — close the tab and it’s gone.
         </p>
       </div>
     </div>

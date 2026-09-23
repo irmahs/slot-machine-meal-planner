@@ -103,11 +103,18 @@ and it collapses to one column when the window is too narrow to hold both.
 ### Signing in, or not
 
 Signing in with a magic link puts everything in Supabase under your account. **Have a look around**
-opens a guest tab instead. It starts with an empty pantry, since there are no ingredients in the
-source to start it with, and holds the whole session in `sessionStorage`: it survives a reload and
-is gone when the tab closes. A guest's pantry never reaches Supabase. The vocabulary still comes
-from Supabase, so guest mode needs the database connected too. That's why the reference tables are
-readable without signing in.
+opens a guest tab instead, starting from a demo pantry that lives in four `meal_planner_demo_*`
+tables: ten ingredients with their ticked methods, eight of them stocked, and two on the shopping
+list. The tab copies them once when it opens. From then on the guest works on their own copy in
+`sessionStorage`, which survives a reload and is gone when the tab closes. Nothing a guest does
+reaches Supabase, and the demo tables never change.
+
+The demo stores use-by dates as *days from now*, so it is as fresh the day someone opens it as the
+day it was written. To change the demo, edit those rows; a signed-in account never sees them. If
+they can't be read, the guest still gets in, just with an empty pantry.
+
+Vocabulary and demo both come from Supabase, so guest mode needs the database connected too. That's
+why those tables are readable without signing in.
 
 ## Storage (Supabase)
 
@@ -115,7 +122,8 @@ Every screen but Draw reads its rows from Supabase, so this is setup, not an ext
 
 ### The data
 
-The eight reference tables are readable by anyone and writable by no one. Every other table
+The eight reference tables and the four demo tables are readable by anyone and writable by no
+one. Every other table
 carries the `user_id` of the account that owns the row, and its RLS policy compares that to
 `auth.uid()`. You sign in with an email; Supabase maps the address to a stable user id, so
 the data follows the account even if the address changes.
@@ -135,6 +143,7 @@ the data follows the account even if the address changes.
 | `meal_planner_pantry` | What is stocked: quantity, unit and `date_expiration`. The reels are built from this table alone. |
 | `meal_planner_method_settings` | A row only for a method you switched **off**, so a new account has all ten. |
 | `meal_planner_shopping_list` | What to buy, why, and whether it has been bought. |
+| `meal_planner_demo_*` | The demo pantry guest mode starts from: ingredients, their methods, pantry (with `days_left` instead of a date) and shopping list. Readable by anyone, owned by no one. Seeded by its own migration. |
 
 Five notes on the shape:
 
@@ -275,7 +284,7 @@ supabase/
   config.toml           CLI settings; carries no project identity, no secrets
   migrations/           the schema's history, applied by `supabase db push`
 scripts/
-  vocab-fixture.sh      regenerates src/test/vocab.json from the migration
+  vocab-fixture.sh      regenerates src/test/*.json from the migrations
 src/
   data/model.ts         the app's types — no ingredient data anywhere
   data/vocab.ts         reads the eight reference tables; holds no words of its own
@@ -284,9 +293,11 @@ src/
   lib/supabase/         client.ts (browser client), auth.ts (magic link, session, sign out)
   lib/remote.ts         load a snapshot, write only what changed
   lib/guest.ts          the guest tab: one sessionStorage key, lost with the tab
+  lib/demo.ts           reads the demo tables into a guest's starting pantry
   lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
   components/           Icon, Switch, SignIn, and glyphs.ts — SVG drawings keyed by code
   test/vocab.json       the reference rows exactly as the migration seeds them
+  test/demo.json        the demo rows, likewise
   features.ts           what is built but switched off
   screens/              Draw, Pantry, AddIngredient, Cooked, ShoppingList, CookingMethods, ReelRules
   styles.css            one stylesheet; the palette lives in :root

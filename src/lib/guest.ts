@@ -1,18 +1,18 @@
 import { EMPTY, type Snapshot } from './remote';
 
 /**
- * Guest mode: a tab you can look around in without an account. It starts empty —
- * there are no ingredients in the app's source to start it with — and lives in
+ * Guest mode: a tab you can look around in without an account. It starts from
+ * the demo pantry in the database (see src/lib/demo.ts) and lives in
  * sessionStorage, which is scoped to the one tab and cleared when it closes. A
- * reload keeps the pantry; closing the tab loses it. Nothing reaches your rows in
- * Supabase; the vocabulary is still read from there, as it is for everyone.
+ * reload keeps the pantry; closing the tab loses it. Nothing a guest does is
+ * written to Supabase.
  */
 const KEY = 'spin-supper:guest';
 
 export const isGuest = () => read() !== null;
 
-export function startGuest(): void {
-  write(EMPTY);
+export function startGuest(start: Snapshot = EMPTY): void {
+  write(start);
 }
 
 export const loadGuest = (): Snapshot => read() ?? EMPTY;
