@@ -1,4 +1,4 @@
-import type { CategoryCode } from './vocab';
+import type { CategoryCode } from "./vocab";
 
 /**
  * The app's own types. Codes here (a kind, a unit, a method) are the `code`

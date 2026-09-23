@@ -1,4 +1,5 @@
-import { EMPTY, type Snapshot } from './remote';
+import { EMPTY } from "./remote";
+import type { Snapshot } from "./remote";
 
 /**
  * Guest mode: a tab you can look around in without an account. It starts from
@@ -7,7 +8,7 @@ import { EMPTY, type Snapshot } from './remote';
  * reload keeps the pantry; closing the tab loses it. Nothing a guest does is
  * written to Supabase.
  */
-const KEY = 'spin-supper:guest';
+const KEY = "spin-supper:guest";
 
 export const isGuest = () => read() !== null;
 
@@ -29,10 +30,15 @@ export function endGuest(): void {
 function read(): Snapshot | null {
   try {
     const raw = sessionStorage.getItem(KEY);
-    if (!raw) return null;
+    if (!raw) {
+      return null;
+    }
     const parsed = JSON.parse(raw) as Snapshot;
     // An older tab may hold ingredients from before methods could be ticked.
-    parsed.catalogue = parsed.catalogue.map((i) => ({ ...i, methods: i.methods ?? [] }));
+    parsed.catalogue = parsed.catalogue.map((i) => ({
+      ...i,
+      methods: i.methods ?? [],
+    }));
     return parsed;
   } catch {
     return null;

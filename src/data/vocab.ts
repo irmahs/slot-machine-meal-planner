@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase/client';
+import { supabase } from "../lib/supabase/client";
 
 /**
  * The app's vocabulary, loaded from the reference tables at startup. Nothing in
@@ -10,16 +10,61 @@ import { supabase } from '../lib/supabase/client';
  * in the schema too: meal_planner_ingredients has one kind column per category,
  * so a fourth category would be a migration, not a row.
  */
-export type CategoryCode = 'protein' | 'vegetable' | 'starch';
-const CATEGORY_CODES: readonly CategoryCode[] = ['protein', 'vegetable', 'starch'];
+export type CategoryCode = "protein" | "vegetable" | "starch";
+const CATEGORY_CODES: ReadonlySet<string> = new Set<CategoryCode>([
+  "protein",
+  "vegetable",
+  "starch",
+]);
 
-export interface Category { id: number; code: CategoryCode; label: string; position: number }
-export interface ProteinKind { id: number; code: string; label: string; examples: string; diet: string; redMeat: boolean }
-export interface VegetableKind { id: number; code: string; label: string; examples: string; word: string }
-export interface StarchKind { id: number; code: string; label: string; examples: string; styleId: number; glutenFree: boolean }
-export interface DishStyle { id: number; code: string; label: string; template: string }
-export interface Unit { id: number; code: string; label: string; isCount: boolean; isDefault: boolean }
-export interface Method { id: number; code: string; label: string; phrase: string }
+export interface Category {
+  id: number;
+  code: CategoryCode;
+  label: string;
+  position: number;
+}
+export interface ProteinKind {
+  id: number;
+  code: string;
+  label: string;
+  examples: string;
+  diet: string;
+  redMeat: boolean;
+}
+export interface VegetableKind {
+  id: number;
+  code: string;
+  label: string;
+  examples: string;
+  word: string;
+}
+export interface StarchKind {
+  id: number;
+  code: string;
+  label: string;
+  examples: string;
+  styleId: number;
+  glutenFree: boolean;
+}
+export interface DishStyle {
+  id: number;
+  code: string;
+  label: string;
+  template: string;
+}
+export interface Unit {
+  id: number;
+  code: string;
+  label: string;
+  isCount: boolean;
+  isDefault: boolean;
+}
+export interface Method {
+  id: number;
+  code: string;
+  label: string;
+  phrase: string;
+}
 export interface DietRule {
   id: number;
   code: string;
@@ -53,27 +98,33 @@ export const EMPTY_VOCAB: Vocab = {
 };
 
 /** The reference tables as PostgREST returns them, keyed by table name. */
-export type RawVocab = Record<(typeof TABLES)[number], Array<Record<string, unknown>>>;
+export type RawVocab = Record<
+  (typeof TABLES)[number],
+  Array<Record<string, unknown>>
+>;
 
 const TABLES = [
-  'meal_planner_categories',
-  'meal_planner_protein_kinds',
-  'meal_planner_vegetable_kinds',
-  'meal_planner_starch_kinds',
-  'meal_planner_dish_styles',
-  'meal_planner_units',
-  'meal_planner_cooking_methods',
-  'meal_planner_diet_rules',
+  "meal_planner_categories",
+  "meal_planner_protein_kinds",
+  "meal_planner_vegetable_kinds",
+  "meal_planner_starch_kinds",
+  "meal_planner_dish_styles",
+  "meal_planner_units",
+  "meal_planner_cooking_methods",
+  "meal_planner_diet_rules",
 ] as const;
 
 /** Reads every reference table in parallel. Readable without signing in. */
 export async function loadVocab(): Promise<Vocab> {
-  if (!supabase) throw new Error('Supabase is not configured');
+  if (!supabase) throw new Error("Supabase is not configured");
   const db = supabase;
   const results = await Promise.all(
     TABLES.map((table) =>
-      db.from(table).select('*').order(table === 'meal_planner_categories' ? 'position' : 'id'),
-    ),
+      db
+        .from(table)
+        .select("*")
+        .order(table === "meal_planner_categories" ? "position" : "id")
+    )
   );
   const raw = {} as RawVocab;
   results.forEach((result, i) => {
@@ -89,63 +140,63 @@ export function toVocab(raw: RawVocab): Vocab {
   const rows = (table: (typeof TABLES)[number]): Row[] => raw[table] ?? [];
 
   return {
-    categories: rows('meal_planner_categories')
-      .filter((r) => CATEGORY_CODES.includes(r.code as CategoryCode))
+    categories: rows("meal_planner_categories")
+      .filter((r) => CATEGORY_CODES.has(String(r.code)))
       .map((r) => ({
-        id: r.id as number,
         code: r.code as CategoryCode,
+        id: r.id as number,
         label: r.label as string,
         position: r.position as number,
       }))
       .sort((a, b) => a.position - b.position),
-    proteinKinds: rows('meal_planner_protein_kinds').map((r) => ({
-      id: r.id as number,
+    proteinKinds: rows("meal_planner_protein_kinds").map((r) => ({
       code: r.code as string,
-      label: r.label as string,
-      examples: r.examples as string,
       diet: r.diet as string,
+      examples: r.examples as string,
+      id: r.id as number,
+      label: r.label as string,
       redMeat: r.is_red_meat as boolean,
     })),
-    vegetableKinds: rows('meal_planner_vegetable_kinds').map((r) => ({
-      id: r.id as number,
+    vegetableKinds: rows("meal_planner_vegetable_kinds").map((r) => ({
       code: r.code as string,
-      label: r.label as string,
       examples: r.examples as string,
+      id: r.id as number,
+      label: r.label as string,
       word: r.cooking_word as string,
     })),
-    starchKinds: rows('meal_planner_starch_kinds').map((r) => ({
-      id: r.id as number,
+    starchKinds: rows("meal_planner_starch_kinds").map((r) => ({
       code: r.code as string,
-      label: r.label as string,
       examples: r.examples as string,
-      styleId: r.id_dish_style as number,
       glutenFree: r.gluten_free as boolean,
-    })),
-    dishStyles: rows('meal_planner_dish_styles').map((r) => ({
       id: r.id as number,
+      label: r.label as string,
+      styleId: r.id_dish_style as number,
+    })),
+    dishStyles: rows("meal_planner_dish_styles").map((r) => ({
       code: r.code as string,
+      id: r.id as number,
       label: r.label as string,
       template: r.name_template as string,
     })),
-    units: rows('meal_planner_units').map((r) => ({
-      id: r.id as number,
+    units: rows("meal_planner_units").map((r) => ({
       code: r.code as string,
-      label: r.label as string,
+      id: r.id as number,
       isCount: r.is_count as boolean,
       isDefault: r.is_default as boolean,
+      label: r.label as string,
     })),
-    methods: rows('meal_planner_cooking_methods').map((r) => ({
-      id: r.id as number,
+    methods: rows("meal_planner_cooking_methods").map((r) => ({
       code: r.code as string,
+      id: r.id as number,
       label: r.label as string,
       phrase: r.phrase as string,
     })),
-    dietRules: rows('meal_planner_diet_rules').map((r) => ({
-      id: r.id as number,
+    dietRules: rows("meal_planner_diet_rules").map((r) => ({
       code: r.code as string,
-      label: r.label as string,
       excludesDiets: (r.excludes_diets as string[]) ?? [],
       excludesRedMeat: r.excludes_red_meat as boolean,
+      id: r.id as number,
+      label: r.label as string,
       requiresGlutenFree: r.requires_gluten_free as boolean,
     })),
   };
@@ -153,21 +204,32 @@ export function toVocab(raw: RawVocab): Vocab {
 
 // ── Reading it ───────────────────────────────────────────────────────────────
 
-export const categoryCodes = (v: Vocab): CategoryCode[] => v.categories.map((c) => c.code);
+export const categoryCodes = (v: Vocab): CategoryCode[] =>
+  v.categories.map((c) => c.code);
 
 export const labelOfCategory = (v: Vocab, code: CategoryCode) =>
-  v.categories.find((c) => c.code === code)?.label ?? '';
+  v.categories.find((c) => c.code === code)?.label ?? "";
 
 export const kindsFor = (v: Vocab, category: CategoryCode) =>
-  category === 'protein' ? v.proteinKinds : category === 'vegetable' ? v.vegetableKinds : v.starchKinds;
+  category === "protein"
+    ? v.proteinKinds
+    : category === "vegetable"
+      ? v.vegetableKinds
+      : v.starchKinds;
 
 export const defaultUnit = (v: Vocab): string =>
-  (v.units.find((u) => u.isDefault) ?? v.units[0])?.code ?? '';
+  (v.units.find((u) => u.isDefault) ?? v.units[0])?.code ?? "";
 
 export const methodOf = (v: Vocab, code: string | null | undefined) =>
   code ? v.methods.find((m) => m.code === code) : undefined;
 
 /** "×8" for a count, "600 g" for anything else — which is which is a column. */
-export function formatQuantity(v: Vocab, quantity: number, unit: string): string {
-  return v.units.find((u) => u.code === unit)?.isCount ? `×${quantity}` : `${quantity} ${unit}`;
+export function formatQuantity(
+  v: Vocab,
+  quantity: number,
+  unit: string
+): string {
+  return v.units.find((u) => u.code === unit)?.isCount
+    ? `×${quantity}`
+    : `${quantity} ${unit}`;
 }

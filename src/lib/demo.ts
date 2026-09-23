@@ -1,8 +1,10 @@
-import type { Ingredient } from '../data/model';
-import { defaultUnit, type CategoryCode, type Vocab } from '../data/vocab';
-import { addDaysISO } from './dates';
-import { EMPTY, type Snapshot } from './remote';
-import { supabase } from './supabase/client';
+import type { Ingredient } from "../data/model";
+import { defaultUnit } from "../data/vocab";
+import type { CategoryCode, Vocab } from "../data/vocab";
+import { addDaysISO } from "./dates";
+import { EMPTY } from "./remote";
+import type { Snapshot } from "./remote";
+import { supabase } from "./supabase/client";
 
 /**
  * The demo pantry a guest starts from. It lives in four tables seeded by the
@@ -11,22 +13,31 @@ import { supabase } from './supabase/client';
  * that the guest works on their own copy and the tables never change.
  */
 const TABLES = [
-  'meal_planner_demo_ingredients',
-  'meal_planner_demo_ingredient_methods',
-  'meal_planner_demo_pantry',
-  'meal_planner_demo_shopping_list',
+  "meal_planner_demo_ingredients",
+  "meal_planner_demo_ingredient_methods",
+  "meal_planner_demo_pantry",
+  "meal_planner_demo_shopping_list",
 ] as const;
 
-export type RawDemo = Record<(typeof TABLES)[number], Array<Record<string, unknown>>>;
+export type RawDemo = Record<
+  (typeof TABLES)[number],
+  Record<string, unknown>[]
+>;
 
 export async function loadDemo(vocab: Vocab): Promise<Snapshot> {
-  if (!supabase) throw new Error('Supabase is not configured');
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
   const db = supabase;
-  const results = await Promise.all(TABLES.map((table) => db.from(table).select('*')));
+  const results = await Promise.all(
+    TABLES.map((table) => db.from(table).select("*"))
+  );
   const raw = {} as RawDemo;
   results.forEach((result, i) => {
-    if (result.error) throw result.error;
-    raw[TABLES[i]] = (result.data ?? []) as Array<Record<string, unknown>>;
+    if (result.error) {
+      throw result.error;
+    }
+    raw[TABLES[i]] = (result.data ?? []) as Record<string, unknown>[];
   });
   return toDemo(raw, vocab);
 }
@@ -36,11 +47,18 @@ export async function loadDemo(vocab: Vocab): Promise<Snapshot> {
  * as days from now, and become dates here — so the demo is always as fresh as
  * the day it was written, whenever it is opened.
  */
-export function toDemo(raw: RawDemo, vocab: Vocab, addDays: (days: number) => string = addDaysISO): Snapshot {
-  const codeOf = <T extends { id: number; code: string }>(rows: T[], id: unknown) =>
-    rows.find((r) => r.id === id)?.code;
+export function toDemo(
+  raw: RawDemo,
+  vocab: Vocab,
+  addDays: (days: number) => string = addDaysISO
+): Snapshot {
+  const codeOf = <T extends { id: number; code: string }>(
+    rows: T[],
+    id: unknown
+  ) => rows.find((r) => r.id === id)?.code;
   const unitOf = (id: unknown) => codeOf(vocab.units, id) ?? defaultUnit(vocab);
-  const methodOrder = (code: string) => vocab.methods.findIndex((m) => m.code === code);
+  const methodOrder = (code: string) =>
+    vocab.methods.findIndex((m) => m.code === code);
 
   const ingredients = raw.meal_planner_demo_ingredients ?? [];
   const nameOf = new Map(ingredients.map((r) => [r.id, r.name as string]));
@@ -48,26 +66,37 @@ export function toDemo(raw: RawDemo, vocab: Vocab, addDays: (days: number) => st
   const ticks = new Map<unknown, string[]>();
   for (const t of raw.meal_planner_demo_ingredient_methods ?? []) {
     const code = codeOf(vocab.methods, t.id_method);
-    if (code) ticks.set(t.id_demo_ingredient, [...(ticks.get(t.id_demo_ingredient) ?? []), code]);
+    if (code) {
+      ticks.set(t.id_demo_ingredient, [
+        ...(ticks.get(t.id_demo_ingredient) ?? []),
+        code,
+      ]);
+    }
   }
 
   const catalogue: Ingredient[] = ingredients.flatMap((r) => {
-    const category = codeOf(vocab.categories, r.id_category) as CategoryCode | undefined;
-    if (!category) return [];
+    const category = codeOf(vocab.categories, r.id_category) as
+      | CategoryCode
+      | undefined;
+    if (!category) {
+      return [];
+    }
     const kind =
-      category === 'protein'
+      category === "protein"
         ? codeOf(vocab.proteinKinds, r.id_protein_kind)
-        : category === 'vegetable'
+        : category === "vegetable"
           ? codeOf(vocab.vegetableKinds, r.id_vegetable_kind)
           : codeOf(vocab.starchKinds, r.id_starch_kind);
     return [
       {
+        category,
+        glutenFree: (r.gluten_free as boolean | null) ?? null,
+        kind: kind ?? "",
+        methods: (ticks.get(r.id) ?? []).sort(
+          (a, b) => methodOrder(a) - methodOrder(b)
+        ),
         name: r.name as string,
         shortName: (r.short_name as string | null) ?? null,
-        category,
-        kind: kind ?? '',
-        glutenFree: (r.gluten_free as boolean | null) ?? null,
-        methods: (ticks.get(r.id) ?? []).sort((a, b) => methodOrder(a) - methodOrder(b)),
       },
     ];
   });
@@ -75,16 +104,31 @@ export function toDemo(raw: RawDemo, vocab: Vocab, addDays: (days: number) => st
   return {
     ...EMPTY,
     catalogue: catalogue.sort((a, b) => a.name.localeCompare(b.name)),
-    pantry: (raw.meal_planner_demo_pantry ?? []).flatMap((r) => {
-      const name = nameOf.get(r.id_demo_ingredient);
-      return name
-        ? [{ name, qty: Number(r.quantity), unit: unitOf(r.id_unit), expiresOn: addDays(Number(r.days_left)) }]
-        : [];
-    }),
     grocery: (raw.meal_planner_demo_shopping_list ?? []).flatMap((r) => {
       const name = nameOf.get(r.id_demo_ingredient);
       return name
-        ? [{ name, qty: Number(r.quantity), unit: unitOf(r.id_unit), note: (r.note as string) ?? '', acquired: false }]
+        ? [
+            {
+              name,
+              qty: Number(r.quantity),
+              unit: unitOf(r.id_unit),
+              note: (r.note as string) ?? "",
+              acquired: false,
+            },
+          ]
+        : [];
+    }),
+    pantry: (raw.meal_planner_demo_pantry ?? []).flatMap((r) => {
+      const name = nameOf.get(r.id_demo_ingredient);
+      return name
+        ? [
+            {
+              name,
+              qty: Number(r.quantity),
+              unit: unitOf(r.id_unit),
+              expiresOn: addDays(Number(r.days_left)),
+            },
+          ]
         : [];
     }),
   };

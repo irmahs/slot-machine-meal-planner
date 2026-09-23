@@ -1,6 +1,7 @@
-import type { Dispatch } from 'react';
-import { Switch } from '../components/Switch';
-import type { Action, PlannerState } from '../state/planner';
+import type { Dispatch } from "react";
+
+import { Switch } from "../components/Switch";
+import type { Action, PlannerState } from "../state/planner";
 
 interface Props {
   state: PlannerState;
@@ -14,25 +15,28 @@ interface Props {
  */
 export function CookingMethods({ state, dispatch }: Props) {
   const v = state.vocab;
-  const usedBy = (code: string) => state.catalogue.filter((i) => i.methods.includes(code)).length;
+  const usedBy = (code: string) =>
+    state.catalogue.filter((i) => i.methods.includes(code)).length;
 
   return (
     <div className="page-narrow">
       <p className="intro">
-        Each ingredient says which of these it can be cooked with, ticked when you add it. A draw picks one
-        of those ticks for each pick — and anything switched off here is left out, whatever was ticked.
+        Each ingredient says which of these it can be cooked with, ticked when
+        you add it. A draw picks one of those ticks for each pick — and anything
+        switched off here is left out, whatever was ticked.
       </p>
       <ul className="rows">
         {v.methods.map((m) => {
           const enabled = !state.methodsOff.includes(m.code);
           const count = usedBy(m.code);
           return (
-            <li key={m.code} className={'lrow' + (enabled ? '' : ' lrow--done')}>
-              <span className="lrow__main" style={{ cursor: 'default' }}>
+            <li key={m.code} className={`lrow${enabled ? "" : " lrow--done"}`}>
+              <span className="lrow__main" style={{ cursor: "default" }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="lrow__name">{m.label}</span>
                   <span className="lrow__why">
-                    “{m.phrase} …” · ticked on {count} {count === 1 ? 'ingredient' : 'ingredients'}
+                    “{m.phrase} …” · ticked on {count}{" "}
+                    {count === 1 ? "ingredient" : "ingredients"}
                   </span>
                 </span>
               </span>
@@ -42,9 +46,11 @@ export function CookingMethods({ state, dispatch }: Props) {
                 role="switch"
                 aria-checked={enabled}
                 aria-label={m.label}
-                onClick={() => dispatch({ type: 'method/toggle', code: m.code })}
+                onClick={() =>
+                  dispatch({ code: m.code, type: "method/toggle" })
+                }
               >
-                {enabled ? 'On' : 'Off'}
+                {enabled ? "On" : "Off"}
                 <Switch on={enabled} />
               </button>
             </li>

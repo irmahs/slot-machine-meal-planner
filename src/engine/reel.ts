@@ -1,6 +1,7 @@
-import type { Ingredient, PantryItem } from '../data/model';
-import { categoryCodes, type CategoryCode, type DietRule, type Vocab } from '../data/vocab';
-import { daysUntil } from '../lib/dates';
+import type { Ingredient, PantryItem } from "../data/model";
+import { categoryCodes } from "../data/vocab";
+import type { CategoryCode, DietRule, Vocab } from "../data/vocab";
+import { daysUntil } from "../lib/dates";
 
 /** Height of one reel cell in px. Drives all of the spin maths. */
 export const CELL_H = 84;
@@ -13,7 +14,10 @@ export type Reels = Triple<PantryItem[]>;
 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 
-export function ingredientOf(catalogue: Ingredient[], name: string): Ingredient | undefined {
+export function ingredientOf(
+  catalogue: Ingredient[],
+  name: string
+): Ingredient | undefined {
   return catalogue.find((i) => i.name === name);
 }
 
@@ -21,11 +25,15 @@ export function ingredientOf(catalogue: Ingredient[], name: string): Ingredient 
  * The reels are the pantry, sliced by the category of each item's ingredient.
  * Nothing you have not stocked can spin. Soonest to go off sits at the top.
  */
-export function reelsFrom(pantry: PantryItem[], catalogue: Ingredient[], vocab: Vocab): Reels {
+export function reelsFrom(
+  pantry: PantryItem[],
+  catalogue: Ingredient[],
+  vocab: Vocab
+): Reels {
   return categoryCodes(vocab).map((code) =>
     pantry
       .filter((item) => ingredientOf(catalogue, item.name)?.category === code)
-      .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn)),
+      .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn))
   ) as Reels;
 }
 
@@ -39,27 +47,43 @@ export const canSpin = (reels: Reels, vocab: Vocab) =>
 export const daysLeft = (item: PantryItem) => daysUntil(item.expiresOn);
 
 /** The payline is the middle of three visible cells, i.e. strip index idx + 1. */
-export const paylineOf = (idx: number, len: number) => (len === 0 ? 0 : mod(idx + 1, len));
+export const paylineOf = (idx: number, len: number) =>
+  len === 0 ? 0 : mod(idx + 1, len);
 
 /**
  * Whether an ingredient survives the active diet rules. Each rule is a row
  * describing what it excludes in terms of kind columns, so this applies any rule
  * the table holds without knowing one by name.
  */
-export function allowed(ingredient: Ingredient | undefined, rules: DietRule[], vocab: Vocab): boolean {
-  if (!ingredient || !rules.length) return true;
+export function allowed(
+  ingredient: Ingredient | undefined,
+  rules: DietRule[],
+  vocab: Vocab
+): boolean {
+  if (!ingredient || !rules.length) {
+    return true;
+  }
 
-  if (ingredient.category === 'protein') {
+  if (ingredient.category === "protein") {
     const kind = vocab.proteinKinds.find((k) => k.code === ingredient.kind);
     if (kind) {
-      if (rules.some((r) => r.excludesDiets.includes(kind.diet))) return false;
-      if (kind.redMeat && rules.some((r) => r.excludesRedMeat)) return false;
+      if (rules.some((r) => r.excludesDiets.includes(kind.diet))) {
+        return false;
+      }
+      if (kind.redMeat && rules.some((r) => r.excludesRedMeat)) {
+        return false;
+      }
     }
   }
 
-  if (ingredient.category === 'starch' && rules.some((r) => r.requiresGlutenFree)) {
+  if (
+    ingredient.category === "starch" &&
+    rules.some((r) => r.requiresGlutenFree)
+  ) {
     const kind = vocab.starchKinds.find((k) => k.code === ingredient.kind);
-    if (!(ingredient.glutenFree ?? kind?.glutenFree ?? false)) return false;
+    if (!(ingredient.glutenFree ?? kind?.glutenFree ?? false)) {
+      return false;
+    }
   }
 
   return true;
@@ -67,11 +91,19 @@ export function allowed(ingredient: Ingredient | undefined, rules: DietRule[], v
 
 /** Everything on a reel is in the pantry, so weight is purely about urgency. */
 export function weightOf(item: PantryItem, weighting: boolean): number {
-  if (!weighting) return 1;
+  if (!weighting) {
+    return 1;
+  }
   const left = daysLeft(item);
-  if (left <= 2) return 6;
-  if (left <= 4) return 3;
-  if (left <= 10) return 1.6;
+  if (left <= 2) {
+    return 6;
+  }
+  if (left <= 4) {
+    return 3;
+  }
+  if (left <= 10) {
+    return 1.6;
+  }
   return 1;
 }
 
@@ -86,17 +118,31 @@ export interface PickContext {
  * Weighted pick within one reel, after diet filtering. A filter that empties the
  * reel falls back to the unfiltered list rather than failing to draw.
  */
-export function pickIndex(list: PantryItem[], ctx: PickContext, random: () => number = Math.random): number {
-  if (!list.length) return -1;
+export function pickIndex(
+  list: PantryItem[],
+  ctx: PickContext,
+  random: () => number = Math.random
+): number {
+  if (!list.length) {
+    return -1;
+  }
 
-  const pool = list.filter((item) => allowed(ingredientOf(ctx.catalogue, item.name), ctx.rules, ctx.vocab));
+  const pool = list.filter((item) =>
+    allowed(ingredientOf(ctx.catalogue, item.name), ctx.rules, ctx.vocab)
+  );
   const source = pool.length ? pool : list;
-  let r = random() * source.reduce((sum, item) => sum + weightOf(item, ctx.weighting), 0);
+  let r =
+    random() *
+    source.reduce((sum, item) => sum + weightOf(item, ctx.weighting), 0);
   for (const item of source) {
     r -= weightOf(item, ctx.weighting);
-    if (r <= 0) return list.indexOf(item);
+    if (r <= 0) {
+      return list.indexOf(item);
+    }
   }
-  return list.indexOf(source[source.length - 1]);
+  // Rounding can leave r a hair above zero after the loop; the last item takes it.
+  const last = source.at(-1);
+  return last ? list.indexOf(last) : -1;
 }
 
 export interface SpinPlan {
@@ -114,9 +160,13 @@ export function planSpin(
   locks: Triple<boolean>,
   reels: Reels,
   ctx: PickContext,
-  random: () => number = Math.random,
+  random: () => number = Math.random
 ): SpinPlan {
-  const out: SpinPlan = { idx: [...idx], dur: ['0s', '0s', '0s'], target: [0, 0, 0] };
+  const out: SpinPlan = {
+    dur: ["0s", "0s", "0s"],
+    idx: [...idx],
+    target: [0, 0, 0],
+  };
 
   reels.forEach((list, k) => {
     const len = list.length;
@@ -134,15 +184,26 @@ export function planSpin(
   return out;
 }
 
-export const settledIdx = (target: Triple<number>, reels: Reels): Triple<number> =>
+export const settledIdx = (
+  target: Triple<number>,
+  reels: Reels
+): Triple<number> =>
   target.map((c, k) => c + Math.max(reels[k].length, 1) - 1) as Triple<number>;
 
-export const pickedNames = (target: Triple<number>, reels: Reels): Triple<string | null> =>
+export const pickedNames = (
+  target: Triple<number>,
+  reels: Reels
+): Triple<string | null> =>
   target.map((c, k) => reels[k][c]?.name ?? null) as Triple<string | null>;
 
 /** The methods an ingredient may be cooked with right now: ticked, and in rotation. */
-export function methodsFor(ingredient: Ingredient | undefined, methodsOff: string[]): string[] {
-  return (ingredient?.methods ?? []).filter((code) => !methodsOff.includes(code));
+export function methodsFor(
+  ingredient: Ingredient | undefined,
+  methodsOff: string[]
+): string[] {
+  return (ingredient?.methods ?? []).filter(
+    (code) => !methodsOff.includes(code)
+  );
 }
 
 /**
@@ -155,13 +216,17 @@ export function chooseMethods(
   methodsOff: string[],
   held: Triple<boolean>,
   previous: Triple<string | null> | null,
-  random: () => number = Math.random,
+  random: () => number = Math.random
 ): Triple<string | null> {
   return picks.map((ingredient, k) => {
     const options = methodsFor(ingredient, methodsOff);
     const kept = previous?.[k] ?? null;
-    if (held[k] && kept && options.includes(kept)) return kept;
-    return options.length ? options[Math.floor(random() * options.length)] : null;
+    if (held[k] && kept && options.includes(kept)) {
+      return kept;
+    }
+    return options.length
+      ? options[Math.floor(random() * options.length)]
+      : null;
   }) as Triple<string | null>;
 }
 
@@ -175,11 +240,14 @@ export function styleOf(starch: Ingredient | undefined, vocab: Vocab) {
  * fill it disappears with its spare space, and the first letter is capitalised.
  * This is the whole of the app's part in naming a dish: the wording is the row.
  */
-export function fillTemplate(template: string, values: Record<string, string>): string {
+export function fillTemplate(
+  template: string,
+  values: Record<string, string>
+): string {
   const filled = template
-    .replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '')
-    .replace(/\s+/g, ' ')
-    .replace(/\s+([,&])\s*$/, '')
+    .replaceAll(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "")
+    .replaceAll(/\s+/g, " ")
+    .replace(/\s+([,&])\s*$/, "")
     .trim();
   return filled.charAt(0).toUpperCase() + filled.slice(1);
 }
@@ -187,18 +255,24 @@ export function fillTemplate(template: string, values: Record<string, string>): 
 export function dishName(
   picks: Triple<Ingredient | undefined>,
   methods: Triple<string | null>,
-  vocab: Vocab,
+  vocab: Vocab
 ): string {
   const [protein, vegetable, starch] = picks;
   const present = picks.filter((i): i is Ingredient => i !== undefined);
-  if (!present.length) return '';
+  if (!present.length) {
+    return "";
+  }
 
   const style = styleOf(starch, vocab);
-  if (!protein || !vegetable || !starch || !style) return present.map((i) => i.name).join(' & ');
+  if (!protein || !vegetable || !starch || !style) {
+    return present.map((i) => i.name).join(" & ");
+  }
 
-  const phrase = (code: string | null) => vocab.methods.find((m) => m.code === code)?.phrase ?? '';
+  const phrase = (code: string | null) =>
+    vocab.methods.find((m) => m.code === code)?.phrase ?? "";
   const short = (i: Ingredient) => i.shortName || i.name;
-  const vegKindWord = vocab.vegetableKinds.find((k) => k.code === vegetable.kind)?.word ?? '';
+  const vegKindWord =
+    vocab.vegetableKinds.find((k) => k.code === vegetable.kind)?.word ?? "";
 
   return fillTemplate(style.template, {
     method: phrase(methods[0]),
@@ -212,11 +286,11 @@ export function dishName(
 
 export const daysNote = (days: number) =>
   days > 30
-    ? 'keeps for months'
+    ? "keeps for months"
     : days < 0
-      ? 'past its date'
+      ? "past its date"
       : days === 0
-        ? 'use today'
+        ? "use today"
         : days === 1
-          ? 'use tomorrow'
+          ? "use tomorrow"
           : `use within ${days} days`;

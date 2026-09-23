@@ -1,6 +1,7 @@
-import type { Dispatch } from 'react';
-import { Switch } from '../components/Switch';
-import type { Action, PlannerState } from '../state/planner';
+import type { Dispatch } from "react";
+
+import { Switch } from "../components/Switch";
+import type { Action, PlannerState } from "../state/planner";
 
 interface Props {
   state: PlannerState;
@@ -22,15 +23,18 @@ export function ReelRules({ state, dispatch }: Props) {
               type="button"
               className="diet-chip"
               aria-pressed={state.diets.includes(rule.code)}
-              onClick={() => dispatch({ type: 'rules/toggleDiet', code: rule.code })}
+              onClick={() =>
+                dispatch({ code: rule.code, type: "rules/toggleDiet" })
+              }
             >
               {rule.label}
             </button>
           ))}
         </div>
         <p className="body-sm">
-          Each rule is a row in meal_planner_diet_rules saying what it keeps off, read against each
-          ingredient’s kind — so a rule works on anything you add, and a new one is a new row.
+          Each rule is a row in meal_planner_diet_rules saying what it keeps
+          off, read against each ingredient’s kind — so a rule works on anything
+          you add, and a new one is a new row.
         </p>
       </div>
 
@@ -45,7 +49,7 @@ export function ReelRules({ state, dispatch }: Props) {
               key={d}
               type="button"
               aria-pressed={state.repeatDays === d}
-              onClick={() => dispatch({ type: 'rules/repeatDays', days: d })}
+              onClick={() => dispatch({ days: d, type: "rules/repeatDays" })}
             >
               {d} days
             </button>
@@ -58,7 +62,7 @@ export function ReelRules({ state, dispatch }: Props) {
         className="weight-card"
         role="switch"
         aria-checked={state.weighting}
-        onClick={() => dispatch({ type: 'rules/toggleWeighting' })}
+        onClick={() => dispatch({ type: "rules/toggleWeighting" })}
       >
         <span style={{ flex: 1, minWidth: 0 }}>
           <span className="weight-card__title">Weight the reels by expiry</span>
@@ -69,7 +73,9 @@ export function ReelRules({ state, dispatch }: Props) {
         <Switch on={state.weighting} large />
       </button>
 
-      <p className="footnote">Rules apply to the next draw. A held column is never overridden.</p>
+      <p className="footnote">
+        Rules apply to the next draw. A held column is never overridden.
+      </p>
     </div>
   );
 }

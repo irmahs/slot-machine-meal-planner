@@ -1,58 +1,354 @@
 {
-  "meal_planner_categories": [{"id":1,"code":"protein","label":"Protein","position":1}, 
- {"id":2,"code":"vegetable","label":"Vegetables","position":2}, 
- {"id":3,"code":"starch","label":"Starch","position":3}],
-  "meal_planner_protein_kinds": [{"id":1,"code":"red","label":"Red meat","examples":"Beef, lamb, goat","diet":"meat","is_red_meat":true}, 
- {"id":2,"code":"white","label":"White meat","examples":"Pork, veal","diet":"meat","is_red_meat":false}, 
- {"id":3,"code":"game","label":"Game","examples":"Venison, rabbit, wild boar, bison","diet":"meat","is_red_meat":true}, 
- {"id":4,"code":"poultry","label":"Poultry","examples":"Chicken, turkey, duck","diet":"meat","is_red_meat":false}, 
- {"id":5,"code":"fish","label":"Fish","examples":"Salmon, tuna, cod","diet":"fish","is_red_meat":false}, 
- {"id":6,"code":"seafood","label":"Seafood","examples":"Prawns, mussels, squid","diet":"fish","is_red_meat":false}, 
- {"id":7,"code":"eggdairy","label":"Eggs & dairy","examples":"Eggs, halloumi, paneer","diet":"veg","is_red_meat":false}, 
- {"id":8,"code":"plant","label":"Plant-based","examples":"Tofu, tempeh, beans, lentils","diet":"veg","is_red_meat":false}],
-  "meal_planner_vegetable_kinds": [{"id":1,"code":"leafy","label":"Leafy greens","examples":"Spinach, kale, chard, lettuce","cooking_word":"wilted"}, 
- {"id":2,"code":"brassica","label":"Brassicas","examples":"Broccoli, cauliflower, cabbage","cooking_word":"charred"}, 
- {"id":3,"code":"root","label":"Roots","examples":"Carrot, beetroot, parsnip","cooking_word":"roasted"}, 
- {"id":4,"code":"fruiting","label":"Fruiting","examples":"Peppers, tomato, zucchini, aubergine","cooking_word":"blistered"}, 
- {"id":5,"code":"pods","label":"Pods & legumes","examples":"Green beans, peas, edamame","cooking_word":"garlicky"}, 
- {"id":6,"code":"allium","label":"Alliums","examples":"Onion, leek, fennel","cooking_word":"caramelised"}, 
- {"id":7,"code":"mushroom","label":"Mushrooms","examples":"Shiitake, oyster, chestnut","cooking_word":"seared"}],
-  "meal_planner_starch_kinds": [{"id":1,"code":"grain","label":"Grains","examples":"Rice, farro, quinoa, bulgur","id_dish_style":1,"gluten_free":true}, 
- {"id":2,"code":"noodle","label":"Noodles","examples":"Udon, rice noodles, soba","id_dish_style":2,"gluten_free":false}, 
- {"id":3,"code":"bread","label":"Bread","examples":"Sourdough, ciabatta, naan","id_dish_style":5,"gluten_free":false}, 
- {"id":4,"code":"wraps","label":"Wraps","examples":"Tortillas, pita, flatbread","id_dish_style":4,"gluten_free":false}, 
- {"id":5,"code":"tuber","label":"Potatoes & roots","examples":"Potato, sweet potato, polenta","id_dish_style":6,"gluten_free":true}, 
- {"id":6,"code":"wholegrain","label":"Whole grains","examples":"Farro, quinoa, bulgur, couscous","id_dish_style":3,"gluten_free":false}],
-  "meal_planner_dish_styles": [{"id":1,"code":"bowl","label":"Rice bowl","name_template":"{method} {protein} {starch} Bowl with {vegetable_method} {vegetable}"}, 
- {"id":2,"code":"noodles","label":"Noodle bowl","name_template":"{method} {protein} {starch} Stir-Fry with {vegetable_method} {vegetable}"}, 
- {"id":3,"code":"salad","label":"Salad bowl","name_template":"{method} {protein} & {starch} Salad with {vegetable_method} {vegetable}"}, 
- {"id":4,"code":"tacos","label":"Tacos","name_template":"{method} {protein} Tacos with {vegetable_method} {vegetable}"}, 
- {"id":5,"code":"skillet","label":"Skillet","name_template":"{method} {protein} {starch} Skillet with {vegetable_method} {vegetable}"}, 
- {"id":6,"code":"roast","label":"Roasting tray","name_template":"{method} {protein} & {starch_method} {starch} Tray with {vegetable_method} {vegetable}"}],
-  "meal_planner_units": [{"id":1,"code":"piece","label":"pieces","is_count":true,"is_default":true}, 
- {"id":2,"code":"g","label":"grams","is_count":false,"is_default":false}, 
- {"id":3,"code":"kg","label":"kilograms","is_count":false,"is_default":false}, 
- {"id":4,"code":"ml","label":"millilitres","is_count":false,"is_default":false}, 
- {"id":5,"code":"l","label":"litres","is_count":false,"is_default":false}, 
- {"id":6,"code":"serving","label":"servings","is_count":false,"is_default":false}, 
- {"id":7,"code":"bag","label":"bags","is_count":false,"is_default":false}, 
- {"id":8,"code":"block","label":"blocks","is_count":false,"is_default":false}, 
- {"id":9,"code":"pack","label":"packs","is_count":false,"is_default":false}, 
- {"id":10,"code":"bunch","label":"bunches","is_count":false,"is_default":false}, 
- {"id":11,"code":"can","label":"cans","is_count":false,"is_default":false}, 
- {"id":12,"code":"pot","label":"pots","is_count":false,"is_default":false}],
-  "meal_planner_cooking_methods": [{"id":1,"code":"roast","label":"Roast","phrase":"Roasted"}, 
- {"id":2,"code":"stir_fry","label":"Stir-fry","phrase":"Stir-fried"}, 
- {"id":3,"code":"pan_fry","label":"Pan-fry","phrase":"Pan-fried"}, 
- {"id":4,"code":"grill","label":"Grill","phrase":"Grilled"}, 
- {"id":5,"code":"braise","label":"Braise","phrase":"Braised"}, 
- {"id":6,"code":"steam","label":"Steam","phrase":"Steamed"}, 
- {"id":7,"code":"bake","label":"Bake","phrase":"Baked"}, 
- {"id":8,"code":"air_fry","label":"Air-fry","phrase":"Air-fried"}, 
- {"id":9,"code":"poach","label":"Poach","phrase":"Poached"}, 
- {"id":10,"code":"slow_cook","label":"Slow-cook","phrase":"Slow-cooked"}],
-  "meal_planner_diet_rules": [{"id":1,"code":"vegetarian","label":"Vegetarian","excludes_diets":["meat","fish"],"excludes_red_meat":false,"requires_gluten_free":false}, 
- {"id":2,"code":"pescatarian","label":"Pescatarian","excludes_diets":["meat"],"excludes_red_meat":false,"requires_gluten_free":false}, 
- {"id":3,"code":"no_red_meat","label":"No red meat","excludes_diets":[],"excludes_red_meat":true,"requires_gluten_free":false}, 
- {"id":4,"code":"gluten_free","label":"Gluten-free","excludes_diets":[],"excludes_red_meat":false,"requires_gluten_free":true}]
+  "meal_planner_categories": [
+    { "id": 1, "code": "protein", "label": "Protein", "position": 1 },
+    { "id": 2, "code": "vegetable", "label": "Vegetables", "position": 2 },
+    { "id": 3, "code": "starch", "label": "Starch", "position": 3 }
+  ],
+  "meal_planner_protein_kinds": [
+    {
+      "id": 1,
+      "code": "red",
+      "label": "Red meat",
+      "examples": "Beef, lamb, goat",
+      "diet": "meat",
+      "is_red_meat": true
+    },
+    {
+      "id": 2,
+      "code": "white",
+      "label": "White meat",
+      "examples": "Pork, veal",
+      "diet": "meat",
+      "is_red_meat": false
+    },
+    {
+      "id": 3,
+      "code": "game",
+      "label": "Game",
+      "examples": "Venison, rabbit, wild boar, bison",
+      "diet": "meat",
+      "is_red_meat": true
+    },
+    {
+      "id": 4,
+      "code": "poultry",
+      "label": "Poultry",
+      "examples": "Chicken, turkey, duck",
+      "diet": "meat",
+      "is_red_meat": false
+    },
+    {
+      "id": 5,
+      "code": "fish",
+      "label": "Fish",
+      "examples": "Salmon, tuna, cod",
+      "diet": "fish",
+      "is_red_meat": false
+    },
+    {
+      "id": 6,
+      "code": "seafood",
+      "label": "Seafood",
+      "examples": "Prawns, mussels, squid",
+      "diet": "fish",
+      "is_red_meat": false
+    },
+    {
+      "id": 7,
+      "code": "eggdairy",
+      "label": "Eggs & dairy",
+      "examples": "Eggs, halloumi, paneer",
+      "diet": "veg",
+      "is_red_meat": false
+    },
+    {
+      "id": 8,
+      "code": "plant",
+      "label": "Plant-based",
+      "examples": "Tofu, tempeh, beans, lentils",
+      "diet": "veg",
+      "is_red_meat": false
+    }
+  ],
+  "meal_planner_vegetable_kinds": [
+    {
+      "id": 1,
+      "code": "leafy",
+      "label": "Leafy greens",
+      "examples": "Spinach, kale, chard, lettuce",
+      "cooking_word": "wilted"
+    },
+    {
+      "id": 2,
+      "code": "brassica",
+      "label": "Brassicas",
+      "examples": "Broccoli, cauliflower, cabbage",
+      "cooking_word": "charred"
+    },
+    {
+      "id": 3,
+      "code": "root",
+      "label": "Roots",
+      "examples": "Carrot, beetroot, parsnip",
+      "cooking_word": "roasted"
+    },
+    {
+      "id": 4,
+      "code": "fruiting",
+      "label": "Fruiting",
+      "examples": "Peppers, tomato, zucchini, aubergine",
+      "cooking_word": "blistered"
+    },
+    {
+      "id": 5,
+      "code": "pods",
+      "label": "Pods & legumes",
+      "examples": "Green beans, peas, edamame",
+      "cooking_word": "garlicky"
+    },
+    {
+      "id": 6,
+      "code": "allium",
+      "label": "Alliums",
+      "examples": "Onion, leek, fennel",
+      "cooking_word": "caramelised"
+    },
+    {
+      "id": 7,
+      "code": "mushroom",
+      "label": "Mushrooms",
+      "examples": "Shiitake, oyster, chestnut",
+      "cooking_word": "seared"
+    }
+  ],
+  "meal_planner_starch_kinds": [
+    {
+      "id": 1,
+      "code": "grain",
+      "label": "Grains",
+      "examples": "Rice, farro, quinoa, bulgur",
+      "id_dish_style": 1,
+      "gluten_free": true
+    },
+    {
+      "id": 2,
+      "code": "noodle",
+      "label": "Noodles",
+      "examples": "Udon, rice noodles, soba",
+      "id_dish_style": 2,
+      "gluten_free": false
+    },
+    {
+      "id": 3,
+      "code": "bread",
+      "label": "Bread",
+      "examples": "Sourdough, ciabatta, naan",
+      "id_dish_style": 5,
+      "gluten_free": false
+    },
+    {
+      "id": 4,
+      "code": "wraps",
+      "label": "Wraps",
+      "examples": "Tortillas, pita, flatbread",
+      "id_dish_style": 4,
+      "gluten_free": false
+    },
+    {
+      "id": 5,
+      "code": "tuber",
+      "label": "Potatoes & roots",
+      "examples": "Potato, sweet potato, polenta",
+      "id_dish_style": 6,
+      "gluten_free": true
+    },
+    {
+      "id": 6,
+      "code": "wholegrain",
+      "label": "Whole grains",
+      "examples": "Farro, quinoa, bulgur, couscous",
+      "id_dish_style": 3,
+      "gluten_free": false
+    }
+  ],
+  "meal_planner_dish_styles": [
+    {
+      "id": 1,
+      "code": "bowl",
+      "label": "Rice bowl",
+      "name_template": "{method} {protein} {starch} Bowl with {vegetable_method} {vegetable}"
+    },
+    {
+      "id": 2,
+      "code": "noodles",
+      "label": "Noodle bowl",
+      "name_template": "{method} {protein} {starch} Stir-Fry with {vegetable_method} {vegetable}"
+    },
+    {
+      "id": 3,
+      "code": "salad",
+      "label": "Salad bowl",
+      "name_template": "{method} {protein} & {starch} Salad with {vegetable_method} {vegetable}"
+    },
+    {
+      "id": 4,
+      "code": "tacos",
+      "label": "Tacos",
+      "name_template": "{method} {protein} Tacos with {vegetable_method} {vegetable}"
+    },
+    {
+      "id": 5,
+      "code": "skillet",
+      "label": "Skillet",
+      "name_template": "{method} {protein} {starch} Skillet with {vegetable_method} {vegetable}"
+    },
+    {
+      "id": 6,
+      "code": "roast",
+      "label": "Roasting tray",
+      "name_template": "{method} {protein} & {starch_method} {starch} Tray with {vegetable_method} {vegetable}"
+    }
+  ],
+  "meal_planner_units": [
+    {
+      "id": 1,
+      "code": "piece",
+      "label": "pieces",
+      "is_count": true,
+      "is_default": true
+    },
+    {
+      "id": 2,
+      "code": "g",
+      "label": "grams",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 3,
+      "code": "kg",
+      "label": "kilograms",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 4,
+      "code": "ml",
+      "label": "millilitres",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 5,
+      "code": "l",
+      "label": "litres",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 6,
+      "code": "serving",
+      "label": "servings",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 7,
+      "code": "bag",
+      "label": "bags",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 8,
+      "code": "block",
+      "label": "blocks",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 9,
+      "code": "pack",
+      "label": "packs",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 10,
+      "code": "bunch",
+      "label": "bunches",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 11,
+      "code": "can",
+      "label": "cans",
+      "is_count": false,
+      "is_default": false
+    },
+    {
+      "id": 12,
+      "code": "pot",
+      "label": "pots",
+      "is_count": false,
+      "is_default": false
+    }
+  ],
+  "meal_planner_cooking_methods": [
+    { "id": 1, "code": "roast", "label": "Roast", "phrase": "Roasted" },
+    {
+      "id": 2,
+      "code": "stir_fry",
+      "label": "Stir-fry",
+      "phrase": "Stir-fried"
+    },
+    { "id": 3, "code": "pan_fry", "label": "Pan-fry", "phrase": "Pan-fried" },
+    { "id": 4, "code": "grill", "label": "Grill", "phrase": "Grilled" },
+    { "id": 5, "code": "braise", "label": "Braise", "phrase": "Braised" },
+    { "id": 6, "code": "steam", "label": "Steam", "phrase": "Steamed" },
+    { "id": 7, "code": "bake", "label": "Bake", "phrase": "Baked" },
+    { "id": 8, "code": "air_fry", "label": "Air-fry", "phrase": "Air-fried" },
+    { "id": 9, "code": "poach", "label": "Poach", "phrase": "Poached" },
+    {
+      "id": 10,
+      "code": "slow_cook",
+      "label": "Slow-cook",
+      "phrase": "Slow-cooked"
+    }
+  ],
+  "meal_planner_diet_rules": [
+    {
+      "id": 1,
+      "code": "vegetarian",
+      "label": "Vegetarian",
+      "excludes_diets": ["meat", "fish"],
+      "excludes_red_meat": false,
+      "requires_gluten_free": false
+    },
+    {
+      "id": 2,
+      "code": "pescatarian",
+      "label": "Pescatarian",
+      "excludes_diets": ["meat"],
+      "excludes_red_meat": false,
+      "requires_gluten_free": false
+    },
+    {
+      "id": 3,
+      "code": "no_red_meat",
+      "label": "No red meat",
+      "excludes_diets": [],
+      "excludes_red_meat": true,
+      "requires_gluten_free": false
+    },
+    {
+      "id": 4,
+      "code": "gluten_free",
+      "label": "Gluten-free",
+      "excludes_diets": [],
+      "excludes_red_meat": false,
+      "requires_gluten_free": true
+    }
+  ]
 }

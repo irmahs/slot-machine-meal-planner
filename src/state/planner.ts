@@ -1,15 +1,16 @@
-import type { GroceryItem, Ingredient, PantryItem, PlanEntry } from '../data/model';
+import type {
+  GroceryItem,
+  Ingredient,
+  PantryItem,
+  PlanEntry,
+} from "../data/model";
 import {
   EMPTY_VOCAB,
   defaultUnit,
   labelOfCategory,
   methodOf,
-  type CategoryCode,
-  type Vocab,
-} from '../data/vocab';
-import { FEATURES } from '../features';
-import { addDaysISO, todayISO } from '../lib/dates';
-import type { Snapshot } from '../lib/remote';
+} from "../data/vocab";
+import type { CategoryCode, Vocab } from "../data/vocab";
 import {
   dishName,
   ingredientOf,
@@ -17,11 +18,20 @@ import {
   reelsFrom,
   settledIdx,
   styleOf,
-  type SpinPlan,
-  type Triple,
-} from '../engine/reel';
+} from "../engine/reel";
+import type { SpinPlan, Triple } from "../engine/reel";
+import { FEATURES } from "../features";
+import { addDaysISO, todayISO } from "../lib/dates";
+import type { Snapshot } from "../lib/remote";
 
-export type Screen = 'spin' | 'pantry' | 'add' | 'plan' | 'list' | 'methods' | 'setup';
+export type Screen =
+  | "spin"
+  | "pantry"
+  | "add"
+  | "plan"
+  | "list"
+  | "methods"
+  | "setup";
 
 /** The Add ingredient form: one ingredient being described. */
 export interface AddDraft {
@@ -71,91 +81,99 @@ export interface PlannerState {
   diets: string[];
   repeatDays: number;
   weighting: boolean;
-  pantryFilter: CategoryCode | 'all';
+  pantryFilter: CategoryCode | "all";
   draft: AddDraft;
   stock: StockDraft;
   flash: string;
 }
 
 const DRAFT0: AddDraft = {
-  name: '',
-  shortName: '',
-  category: 'protein',
-  proteinKind: '',
-  vegetableKind: '',
-  starchKind: '',
-  glutenFree: false,
-  methods: [],
+  category: "protein",
   days: 7,
-  qty: '',
-  unit: '',
+  glutenFree: false,
   have: true,
+  methods: [],
+  name: "",
+  proteinKind: "",
+  qty: "",
+  shortName: "",
+  starchKind: "",
+  unit: "",
+  vegetableKind: "",
 };
 
-const STOCK0: StockDraft = { name: '', qty: '1', unit: '', days: 7 };
+const STOCK0: StockDraft = { days: 7, name: "", qty: "1", unit: "" };
 
 export function createInitialState(): PlannerState {
   return {
-    vocab: EMPTY_VOCAB,
-    screen: 'spin',
     catalogue: [],
-    pantry: [],
-    plan: [],
+    diets: [],
+    draft: DRAFT0,
+    dur: ["0s", "0s", "0s"],
+    flash: "",
     grocery: [],
-    methodsOff: [],
     idx: [0, 0, 0],
     locks: [false, false, false],
-    dur: ['0s', '0s', '0s'],
-    spinning: false,
-    picked: null,
     methods: null,
-    diets: [],
+    methodsOff: [],
+    pantry: [],
+    pantryFilter: "all",
+    picked: null,
+    plan: [],
     repeatDays: 7,
-    weighting: true,
-    pantryFilter: 'all',
-    draft: DRAFT0,
+    screen: "spin",
+    spinning: false,
     stock: STOCK0,
-    flash: '',
+    vocab: EMPTY_VOCAB,
+    weighting: true,
   };
 }
 
 export function snapshotOf(state: PlannerState): Snapshot {
   return {
     catalogue: state.catalogue,
-    pantry: state.pantry,
-    plan: state.plan,
     grocery: state.grocery,
     methodsOff: state.methodsOff,
+    pantry: state.pantry,
+    plan: state.plan,
   };
 }
 
 export const kindOfDraft = (d: AddDraft): string =>
-  d.category === 'protein' ? d.proteinKind : d.category === 'vegetable' ? d.vegetableKind : d.starchKind;
+  d.category === "protein"
+    ? d.proteinKind
+    : d.category === "vegetable"
+      ? d.vegetableKind
+      : d.starchKind;
 
 export type Action =
-  | { type: 'vocab/load'; vocab: Vocab }
-  | { type: 'state/hydrate'; snapshot: Snapshot }
-  | { type: 'screen/go'; screen: Screen }
-  | { type: 'reel/toggleLock'; reel: number }
-  | { type: 'spin/start'; plan: SpinPlan }
-  | { type: 'spin/settle'; target: Triple<number>; methods: Triple<string | null> }
-  | { type: 'dish/cook' }
-  | { type: 'draft/patch'; patch: Partial<AddDraft> }
-  | { type: 'draft/toggleMethod'; code: string }
-  | { type: 'draft/submit' }
-  | { type: 'stock/patch'; patch: Partial<StockDraft> }
-  | { type: 'stock/submit' }
-  | { type: 'pantry/remove'; name: string }
-  | { type: 'pantry/filter'; filter: CategoryCode | 'all' }
-  | { type: 'grocery/add'; name: string }
-  | { type: 'grocery/toggle'; name: string }
-  | { type: 'grocery/remove'; name: string }
-  | { type: 'grocery/stock'; name: string }
-  | { type: 'method/toggle'; code: string }
-  | { type: 'rules/toggleDiet'; code: string }
-  | { type: 'rules/repeatDays'; days: number }
-  | { type: 'rules/toggleWeighting' }
-  | { type: 'flash/clear' };
+  | { type: "vocab/load"; vocab: Vocab }
+  | { type: "state/hydrate"; snapshot: Snapshot }
+  | { type: "screen/go"; screen: Screen }
+  | { type: "reel/toggleLock"; reel: number }
+  | { type: "spin/start"; plan: SpinPlan }
+  | {
+      type: "spin/settle";
+      target: Triple<number>;
+      methods: Triple<string | null>;
+    }
+  | { type: "dish/cook" }
+  | { type: "draft/patch"; patch: Partial<AddDraft> }
+  | { type: "draft/toggleMethod"; code: string }
+  | { type: "draft/submit" }
+  | { type: "stock/patch"; patch: Partial<StockDraft> }
+  | { type: "stock/submit" }
+  | { type: "pantry/remove"; name: string }
+  | { type: "pantry/filter"; filter: CategoryCode | "all" }
+  | { type: "grocery/add"; name: string }
+  | { type: "grocery/toggle"; name: string }
+  | { type: "grocery/remove"; name: string }
+  | { type: "grocery/stock"; name: string }
+  | { type: "method/toggle"; code: string }
+  | { type: "rules/toggleDiet"; code: string }
+  | { type: "rules/repeatDays"; days: number }
+  | { type: "rules/toggleWeighting" }
+  | { type: "flash/clear" };
 
 /** Refreshing a window never brings an expiry date forward. */
 function laterOf(expiresOn: string, days: number): string {
@@ -174,9 +192,12 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const STOCKED_WINDOW = 6;
 const COOKED_WINDOW = 14;
 
-export function plannerReducer(state: PlannerState, action: Action): PlannerState {
+export function plannerReducer(
+  state: PlannerState,
+  action: Action
+): PlannerState {
   switch (action.type) {
-    case 'vocab/load': {
+    case "vocab/load": {
       // Defaults for the forms come from the vocabulary too: the first kind of
       // each category, and whichever unit the units table marks as the default.
       const v = action.vocab;
@@ -184,20 +205,22 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       const starch = v.starchKinds[0];
       return {
         ...state,
-        vocab: v,
         draft: {
           ...state.draft,
-          proteinKind: state.draft.proteinKind || (v.proteinKinds[0]?.code ?? ''),
-          vegetableKind: state.draft.vegetableKind || (v.vegetableKinds[0]?.code ?? ''),
-          starchKind: state.draft.starchKind || (starch?.code ?? ''),
           glutenFree: starch?.glutenFree ?? false,
+          proteinKind:
+            state.draft.proteinKind || (v.proteinKinds[0]?.code ?? ""),
+          starchKind: state.draft.starchKind || (starch?.code ?? ""),
           unit: state.draft.unit || unit,
+          vegetableKind:
+            state.draft.vegetableKind || (v.vegetableKinds[0]?.code ?? ""),
         },
         stock: { ...state.stock, unit: state.stock.unit || unit },
+        vocab: v,
       };
     }
 
-    case 'state/hydrate':
+    case "state/hydrate": {
       return {
         ...state,
         catalogue: action.snapshot.catalogue,
@@ -206,61 +229,72 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         grocery: action.snapshot.grocery,
         methodsOff: action.snapshot.methodsOff,
       };
+    }
 
-    case 'screen/go':
-      return { ...state, screen: action.screen, flash: '' };
+    case "screen/go": {
+      return { ...state, screen: action.screen, flash: "" };
+    }
 
-    case 'reel/toggleLock': {
+    case "reel/toggleLock": {
       const locks = [...state.locks] as Triple<boolean>;
       locks[action.reel] = !locks[action.reel];
       return { ...state, locks };
     }
 
-    case 'spin/start':
+    case "spin/start": {
       return {
         ...state,
         idx: action.plan.idx,
         dur: action.plan.dur,
         spinning: true,
         picked: null,
-        flash: '',
+        flash: "",
       };
+    }
 
-    case 'spin/settle': {
+    case "spin/settle": {
       // The pantry can change while the reels turn, so read the targets back
       // against the reels as they are now rather than as they were planned.
       const reels = reelsFrom(state.pantry, state.catalogue, state.vocab);
       const target = action.target.map((t, k) =>
-        reels[k].length ? t % reels[k].length : 0,
+        reels[k].length ? t % reels[k].length : 0
       ) as Triple<number>;
       const picked = pickedNames(target, reels);
       // A method only survives if the ingredient that landed still has it ticked.
       const methods = action.methods.map((code, k) => {
-        const ingredient = picked[k] ? ingredientOf(state.catalogue, picked[k]!) : undefined;
+        const ingredient = picked[k]
+          ? ingredientOf(state.catalogue, picked[k]!)
+          : undefined;
         return code && ingredient?.methods.includes(code) ? code : null;
       }) as Triple<string | null>;
       return {
         ...state,
-        spinning: false,
-        picked,
-        methods,
+        dur: ["0s", "0s", "0s"],
         idx: settledIdx(target, reels),
-        dur: ['0s', '0s', '0s'],
+        methods,
+        picked,
+        spinning: false,
       };
     }
 
-    case 'dish/cook': {
-      if (!state.picked) return state;
+    case "dish/cook": {
+      if (!state.picked) {
+        return state;
+      }
       const names = state.picked.filter((n): n is string => n !== null);
-      if (!names.length) return state;
+      if (!names.length) {
+        return state;
+      }
 
-      const picks = state.picked.map((n) => (n ? ingredientOf(state.catalogue, n) : undefined)) as Triple<
-        Ingredient | undefined
-      >;
+      const picks = state.picked.map((n) =>
+        n ? ingredientOf(state.catalogue, n) : undefined
+      ) as Triple<Ingredient | undefined>;
       const methods = state.methods ?? [null, null, null];
       // Everything drawn was in the pantry, so cooking pushes its window out.
       const pantry = state.pantry.map((item) =>
-        names.includes(item.name) ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) } : item,
+        names.includes(item.name)
+          ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) }
+          : item
       );
 
       // With history off there is nowhere to send it, so the draw clears and the
@@ -268,47 +302,54 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       if (!FEATURES.history) {
         return {
           ...state,
-          picked: null,
+          flash: `${names.join(", ")} — good for another two weeks.`,
           methods: null,
           pantry,
-          flash: `${names.join(', ')} — good for another two weeks.`,
+          picked: null,
         };
       }
 
       const method = methodOf(state.vocab, methods[0]);
       return {
         ...state,
-        screen: 'plan',
-        picked: null,
         methods: null,
         pantry,
+        picked: null,
         plan: [
           {
             id: crypto.randomUUID(),
             cookedOn: todayISO(),
             dish: dishName(picks, methods, state.vocab),
-            note: method ? `Just drawn · ${method.label.toLowerCase()}` : 'Just drawn',
-            style: styleOf(picks[2], state.vocab)?.code ?? '',
+            note: method
+              ? `Just drawn · ${method.label.toLowerCase()}`
+              : "Just drawn",
+            style: styleOf(picks[2], state.vocab)?.code ?? "",
             method: methods[0],
             ingredients: names,
           },
           ...state.plan,
         ],
+        screen: "plan",
       };
     }
 
-    case 'draft/patch': {
+    case "draft/patch": {
       const draft = { ...state.draft, ...action.patch };
       // Choosing a starch kind carries its gluten default across, unless the
       // same patch said otherwise.
-      if (action.patch.starchKind !== undefined && action.patch.glutenFree === undefined) {
+      if (
+        action.patch.starchKind !== undefined &&
+        action.patch.glutenFree === undefined
+      ) {
         draft.glutenFree =
-          state.vocab.starchKinds.find((k) => k.code === action.patch.starchKind)?.glutenFree ?? false;
+          state.vocab.starchKinds.find(
+            (k) => k.code === action.patch.starchKind
+          )?.glutenFree ?? false;
       }
-      return { ...state, draft, flash: '' };
+      return { ...state, draft, flash: "" };
     }
 
-    case 'draft/toggleMethod': {
+    case "draft/toggleMethod": {
       const on = state.draft.methods.includes(action.code);
       return {
         ...state,
@@ -321,51 +362,73 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       };
     }
 
-    case 'draft/submit': {
+    case "draft/submit": {
       const d = state.draft;
       const name = d.name.trim();
-      if (!name) return state;
+      if (!name) {
+        return state;
+      }
 
       // Keep the table's order rather than the order the chips were tapped in.
-      const methods = state.vocab.methods.map((m) => m.code).filter((c) => d.methods.includes(c));
+      const methods = state.vocab.methods
+        .map((m) => m.code)
+        .filter((c) => d.methods.includes(c));
       const ingredient: Ingredient = {
+        category: d.category,
+        glutenFree: d.category === "starch" ? d.glutenFree : null,
+        kind: kindOfDraft(d),
+        methods,
         name,
         shortName: d.shortName.trim() || null,
-        category: d.category,
-        kind: kindOfDraft(d),
-        glutenFree: d.category === 'starch' ? d.glutenFree : null,
-        methods,
       };
       const reel = labelOfCategory(state.vocab, d.category).toLowerCase();
 
       return {
         ...state,
-        catalogue: [...state.catalogue.filter((i) => !same(i.name, name)), ingredient],
-        pantry: d.have
-          ? [
-              { name, qty: parseQuantity(d.qty), unit: d.unit, expiresOn: addDaysISO(d.days) },
-              ...state.pantry.filter((p) => !same(p.name, name)),
-            ]
-          : state.pantry.filter((p) => !same(p.name, name)),
+        catalogue: [
+          ...state.catalogue.filter((i) => !same(i.name, name)),
+          ingredient,
+        ],
+        draft: { ...d, days: 7, methods: [], name: "", qty: "", shortName: "" },
+        flash: `${name} is on the ${reel} reel${d.have ? " and in the pantry." : ", and on the shopping list."}`,
         grocery: d.have
           ? state.grocery.filter((g) => !same(g.name, name))
           : [
-              { name, qty: parseQuantity(d.qty), unit: d.unit, note: `New on the ${reel} reel`, acquired: false },
+              {
+                name,
+                qty: parseQuantity(d.qty),
+                unit: d.unit,
+                note: `New on the ${reel} reel`,
+                acquired: false,
+              },
               ...state.grocery.filter((g) => !same(g.name, name)),
             ],
-        draft: { ...d, name: '', shortName: '', qty: '', days: 7, methods: [] },
-        flash: `${name} is on the ${reel} reel${d.have ? ' and in the pantry.' : ', and on the shopping list.'}`,
+        pantry: d.have
+          ? [
+              {
+                name,
+                qty: parseQuantity(d.qty),
+                unit: d.unit,
+                expiresOn: addDaysISO(d.days),
+              },
+              ...state.pantry.filter((p) => !same(p.name, name)),
+            ]
+          : state.pantry.filter((p) => !same(p.name, name)),
       };
     }
 
-    case 'stock/patch':
+    case "stock/patch": {
       return { ...state, stock: { ...state.stock, ...action.patch } };
+    }
 
-    case 'stock/submit': {
+    case "stock/submit": {
       const name = state.stock.name.trim();
-      if (!name || !state.catalogue.some((i) => i.name === name)) return state;
+      if (!name || !state.catalogue.some((i) => i.name === name)) {
+        return state;
+      }
       return {
         ...state,
+        grocery: state.grocery.filter((g) => g.name !== name),
         pantry: [
           {
             name,
@@ -375,45 +438,67 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           },
           ...state.pantry.filter((p) => p.name !== name),
         ],
-        grocery: state.grocery.filter((g) => g.name !== name),
         stock: { ...STOCK0, unit: defaultUnit(state.vocab) },
       };
     }
 
-    case 'pantry/remove':
-      return { ...state, pantry: state.pantry.filter((p) => p.name !== action.name) };
+    case "pantry/remove": {
+      return {
+        ...state,
+        pantry: state.pantry.filter((p) => p.name !== action.name),
+      };
+    }
 
-    case 'pantry/filter':
+    case "pantry/filter": {
       return { ...state, pantryFilter: action.filter };
+    }
 
-    case 'grocery/add': {
+    case "grocery/add": {
       const name = action.name.trim();
-      if (!name || state.grocery.some((g) => same(g.name, name))) return state;
+      if (!name || state.grocery.some((g) => same(g.name, name))) {
+        return state;
+      }
       // Only something you have described can go on the list, since the pantry
       // and the reels both need to know its category.
-      if (!state.catalogue.some((i) => i.name === name)) return state;
+      if (!state.catalogue.some((i) => i.name === name)) {
+        return state;
+      }
       return {
         ...state,
         grocery: [
-          { name, qty: 1, unit: defaultUnit(state.vocab), note: 'Added by you', acquired: false },
+          {
+            acquired: false,
+            name,
+            note: "Added by you",
+            qty: 1,
+            unit: defaultUnit(state.vocab),
+          },
           ...state.grocery,
         ],
       };
     }
 
-    case 'grocery/toggle':
+    case "grocery/toggle": {
       return {
         ...state,
-        grocery: state.grocery.map((g) => (g.name === action.name ? { ...g, acquired: !g.acquired } : g)),
+        grocery: state.grocery.map((g) =>
+          g.name === action.name ? { ...g, acquired: !g.acquired } : g
+        ),
       };
+    }
 
-    case 'grocery/remove':
-      return { ...state, grocery: state.grocery.filter((g) => g.name !== action.name) };
+    case "grocery/remove": {
+      return {
+        ...state,
+        grocery: state.grocery.filter((g) => g.name !== action.name),
+      };
+    }
 
-    case 'grocery/stock': {
+    case "grocery/stock": {
       const bought = state.grocery.find((g) => g.name === action.name);
       return {
         ...state,
+        grocery: state.grocery.filter((g) => g.name !== action.name),
         pantry: [
           {
             name: action.name,
@@ -423,34 +508,38 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           },
           ...state.pantry.filter((p) => p.name !== action.name),
         ],
-        grocery: state.grocery.filter((g) => g.name !== action.name),
       };
     }
 
-    case 'method/toggle':
+    case "method/toggle": {
       return {
         ...state,
         methodsOff: state.methodsOff.includes(action.code)
           ? state.methodsOff.filter((c) => c !== action.code)
           : [...state.methodsOff, action.code],
       };
+    }
 
-    case 'rules/toggleDiet':
+    case "rules/toggleDiet": {
       return {
         ...state,
         diets: state.diets.includes(action.code)
           ? state.diets.filter((d) => d !== action.code)
           : [...state.diets, action.code],
       };
+    }
 
-    case 'rules/repeatDays':
+    case "rules/repeatDays": {
       return { ...state, repeatDays: action.days };
+    }
 
-    case 'rules/toggleWeighting':
+    case "rules/toggleWeighting": {
       return { ...state, weighting: !state.weighting };
+    }
 
-    case 'flash/clear':
-      return { ...state, flash: '' };
+    case "flash/clear": {
+      return { ...state, flash: "" };
+    }
   }
 }
 

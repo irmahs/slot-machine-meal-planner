@@ -14,12 +14,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'supabase/migrations/**'
-      - '.github/workflows/database.yml'
+      - "supabase/migrations/**"
+      - ".github/workflows/database.yml"
   pull_request:
     paths:
-      - 'supabase/migrations/**'
-      - '.github/workflows/database.yml'
+      - "supabase/migrations/**"
+      - ".github/workflows/database.yml"
   workflow_dispatch:
 
 # Never let two pushes touch the same database at once.
