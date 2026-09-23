@@ -332,6 +332,53 @@ create index if not exists meal_planner_shopping_list_user_created_idx
   on public.meal_planner_shopping_list (user_id, created_at desc);
 
 
+-- ── Grants ───────────────────────────────────────────────────────────────────
+-- From 30 October 2025 Supabase stops granting the Data API access to new
+-- tables in public automatically, so every table says here who may reach it.
+-- Revoking first makes the result the same on a project that still has the old
+-- default grants as on one that never had them.
+--
+-- Least privilege rather than one blanket set: a guest (anon) reads the
+-- vocabulary and nothing else; a signed-in user (authenticated) reads the
+-- vocabulary and reads and writes their own rows, which RLS then narrows to
+-- theirs; service_role, which bypasses RLS, keeps everything for admin work.
+
+revoke all on table
+  public.meal_planner_categories, public.meal_planner_protein_kinds,
+  public.meal_planner_vegetable_kinds, public.meal_planner_dish_styles,
+  public.meal_planner_starch_kinds, public.meal_planner_units,
+  public.meal_planner_cooking_methods, public.meal_planner_diet_rules,
+  public.meal_planner_ingredients, public.meal_planner_ingredient_methods,
+  public.meal_planner_pantry, public.meal_planner_method_settings,
+  public.meal_planner_shopping_list
+from anon, authenticated;
+
+-- Reference data: read-only for both roles.
+grant select on table
+  public.meal_planner_categories, public.meal_planner_protein_kinds,
+  public.meal_planner_vegetable_kinds, public.meal_planner_dish_styles,
+  public.meal_planner_starch_kinds, public.meal_planner_units,
+  public.meal_planner_cooking_methods, public.meal_planner_diet_rules
+to anon, authenticated;
+
+-- Your data: signed-in only. anon gets nothing here, not even select.
+grant select, insert, update, delete on table
+  public.meal_planner_ingredients, public.meal_planner_ingredient_methods,
+  public.meal_planner_pantry, public.meal_planner_method_settings,
+  public.meal_planner_shopping_list
+to authenticated;
+
+grant select, insert, update, delete on table
+  public.meal_planner_categories, public.meal_planner_protein_kinds,
+  public.meal_planner_vegetable_kinds, public.meal_planner_dish_styles,
+  public.meal_planner_starch_kinds, public.meal_planner_units,
+  public.meal_planner_cooking_methods, public.meal_planner_diet_rules,
+  public.meal_planner_ingredients, public.meal_planner_ingredient_methods,
+  public.meal_planner_pantry, public.meal_planner_method_settings,
+  public.meal_planner_shopping_list
+to service_role;
+
+
 -- ── Row-level security ───────────────────────────────────────────────────────
 
 alter table public.meal_planner_categories enable row level security;

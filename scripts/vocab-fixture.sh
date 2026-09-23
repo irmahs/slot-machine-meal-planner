@@ -25,7 +25,7 @@ q() { psql -h "$dir" -p 5439 -U postgres -v ON_ERROR_STOP=1 -qtA "$@"; }
 q -c "create schema auth;
       create table auth.users (id uuid primary key);
       create function auth.uid() returns uuid language sql stable as 'select null::uuid';
-      create role authenticated; create role anon;"
+      create role authenticated; create role anon; create role service_role bypassrls;"
 for f in supabase/migrations/*.sql; do q -f "$f" >/dev/null; done
 
 dump() {

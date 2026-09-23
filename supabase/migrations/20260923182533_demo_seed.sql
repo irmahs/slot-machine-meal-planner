@@ -135,6 +135,27 @@ from (values
 join public.meal_planner_units u on u.code = l.unit;
 
 
+-- ── Grants ───────────────────────────────────────────────────────────────────
+-- Explicit, as in the schema migration: from 30 October 2025 a new table has
+-- none by default. Read-only for anon and authenticated; service_role keeps
+-- write access so the demo can be edited from the dashboard.
+
+revoke all on table
+  public.meal_planner_demo_ingredients, public.meal_planner_demo_ingredient_methods,
+  public.meal_planner_demo_pantry, public.meal_planner_demo_shopping_list
+from anon, authenticated;
+
+grant select on table
+  public.meal_planner_demo_ingredients, public.meal_planner_demo_ingredient_methods,
+  public.meal_planner_demo_pantry, public.meal_planner_demo_shopping_list
+to anon, authenticated;
+
+grant select, insert, update, delete on table
+  public.meal_planner_demo_ingredients, public.meal_planner_demo_ingredient_methods,
+  public.meal_planner_demo_pantry, public.meal_planner_demo_shopping_list
+to service_role;
+
+
 -- ── Row-level security ───────────────────────────────────────────────────────
 -- Readable by anyone — a guest is not signed in — and writable by no one.
 do $$

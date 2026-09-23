@@ -123,7 +123,19 @@ Every screen but Draw reads its rows from Supabase, so this is setup, not an ext
 ### The data
 
 The eight reference tables and the four demo tables are readable by anyone and writable by no
-one. Every other table
+one.
+
+**Grants are explicit.** From 30 October 2025, Supabase no longer grants the Data API access to new
+tables automatically, so each migration grants the tables it creates. It revokes first, which gives
+the same result on a project that still has the old defaults. Each role gets only what the app uses:
+
+| | `anon` | `authenticated` | `service_role` |
+| --- | --- | --- | --- |
+| Reference and demo tables | select | select | select, insert, update, delete |
+| Your data | — | select, insert, update, delete | select, insert, update, delete |
+
+RLS then narrows `authenticated` to your own rows. A new table needs a line in the grants section of
+the migration that creates it, or the API answers `permission denied`. Every other table
 carries the `user_id` of the account that owns the row, and its RLS policy compares that to
 `auth.uid()`. You sign in with an email; Supabase maps the address to a stable user id, so
 the data follows the account even if the address changes.
