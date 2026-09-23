@@ -11,6 +11,7 @@ import {
   type MethodCode,
   type UnitCode,
 } from '../data/reference';
+import { FEATURES } from '../features';
 import { supabase } from './supabase/client';
 
 export interface Snapshot {
@@ -129,26 +130,32 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
       .returns<
         Array<{ id_ingredient: string; quantity: number; id_unit: number; date_expiration: string }>
       >(),
-    db
-      .from(HISTORY)
-      .select('id, name_meal, note, dish_style, id_method, date_cooked')
-      .eq('user_id', userId)
-      .order('date_cooked', { ascending: false })
-      .order('created_at', { ascending: false })
-      .returns<
-        Array<{
-          id: string;
-          name_meal: string;
-          note: string;
-          dish_style: DishStyle;
-          id_method: number | null;
-          date_cooked: string;
-        }>
-      >(),
-    db
-      .from(HISTORY_INGREDIENTS)
-      .select('id_history, id_ingredient')
-      .returns<Array<{ id_history: string; id_ingredient: string }>>(),
+    // The history tables are not in the schema while FEATURES.history is off,
+    // so asking for them would be a guaranteed 404 on every load.
+    FEATURES.history
+      ? db
+          .from(HISTORY)
+          .select('id, name_meal, note, dish_style, id_method, date_cooked')
+          .eq('user_id', userId)
+          .order('date_cooked', { ascending: false })
+          .order('created_at', { ascending: false })
+          .returns<
+            Array<{
+              id: string;
+              name_meal: string;
+              note: string;
+              dish_style: DishStyle;
+              id_method: number | null;
+              date_cooked: string;
+            }>
+          >()
+      : { data: [], error: null },
+    FEATURES.history
+      ? db
+          .from(HISTORY_INGREDIENTS)
+          .select('id_history, id_ingredient')
+          .returns<Array<{ id_history: string; id_ingredient: string }>>()
+      : { data: [], error: null },
     db
       .from(SHOPPING_LIST)
       .select('id_ingredient, quantity, id_unit, note, acquired')
@@ -283,7 +290,9 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
       before.note !== item.note
     );
   });
-  const planAdded = next.plan.filter((entry) => !prev.plan.some((p) => p.id === entry.id));
+  const planAdded = FEATURES.history
+    ? next.plan.filter((entry) => !prev.plan.some((p) => p.id === entry.id))
+    : [];
 
   const ids = await ingredientIds(userId, [
     ...pantryUpserts.map((item) => item.name),
@@ -339,7 +348,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
     if (links.length) orThrow(await db.from(HISTORY_INGREDIENTS).insert(links));
   }
 
-  const planGone = removed(prev.plan, next.plan, (entry) => entry.id);
+  const planGone = FEATURES.history ? removed(prev.plan, next.plan, (entry) => entry.id) : [];
   if (planGone.length) {
     orThrow(await db.from(HISTORY).delete().eq('user_id', userId).in('id', planGone));
   }

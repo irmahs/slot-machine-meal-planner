@@ -14,7 +14,6 @@ loses track of what they have, so food expires and the same three dishes come ro
 | **Draw** | Three reels, a payline, and one button. Click a column to hold it, draw again for the rest, then send the dish into the pot. Space draws too. |
 | **Pantry** | What is stocked, soonest to go off first. Stocking something picks from the ingredients you have already described. |
 | **Add ingredient** | Describes a new one: its name, its reel, and its kind. The kind is what dish names and diet filters read. |
-| **Cooked** | What you drew and cooked, each with the icon of the shape it was drawn as. |
 | **Shopping list** | What to pick up. Moving something into the pantry is what lets it spin. |
 | **Cooking methods** | Which methods are in rotation. Each draw picks one and names the dish after it. |
 | **Reel rules** | Diet constraints, the no-repeat window, and the expiry weighting switch. |
@@ -115,12 +114,14 @@ the data follows the account even if the address changes.
 | `meal_planner_ingredients` | Your ingredient list: `name`, `short_name`, `id_category`, one of three kind columns, and `gluten_free` for starches. |
 | `meal_planner_pantry` | What is stocked: quantity, unit and `date_expiration`. The reels are built from this table alone. |
 | `meal_planner_method_settings` | A row only for a method you switched **off**, so a new account has all ten. |
-| `meal_planner_history` | One row per dish sent into the pot, keeping the `dish_style` and `id_method` it was drawn with. |
-| `meal_planner_history_ingredients` | Which ingredients a meal was drawn from. Its own table because a meal has three, not one. |
 | `meal_planner_shopping_list` | What to buy, why, and whether it has been bought. |
 
-Four notes on the shape:
+Five notes on the shape:
 
+- **History is switched off.** `FEATURES.history` in `src/features.ts` is `false`, and the two
+  tables it would need are deliberately not in the schema, so nothing reads or writes them. Turning
+  it on means a new migration alongside the flag. Until then *Into the pot* pushes the drawn
+  ingredients' use-by dates two weeks out and says so — the only lasting effect.
 - **`id_ingredient`, not a repeated name.** Everything keys on an ingredient id and the name lives
   in `meal_planner_ingredients`. The app works in names; ids are resolved at the boundary in
   `src/lib/remote.ts`.
@@ -263,6 +264,7 @@ src/
   lib/guest.ts          the guest tab: one sessionStorage key, lost with the tab
   lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
   components/           Icon, Switch, SignIn
+  features.ts           what is built but switched off
   screens/              Draw, Pantry, AddIngredient, Cooked, ShoppingList, CookingMethods, ReelRules
   styles.css            one stylesheet; the palette lives in :root
 ```

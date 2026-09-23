@@ -208,6 +208,10 @@ export function Draw({ state, dispatch, onSpin }: DrawProps) {
           )}
         </div>
 
+        {state.flash && (
+          <div className="flash" role="status">{state.flash}</div>
+        )}
+
         {expiring.length > 0 && (
           <div className="soon-list">
             <div className="kicker">Use these first</div>

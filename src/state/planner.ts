@@ -11,6 +11,7 @@ import {
   type UnitCode,
 } from '../data/reference';
 import { addDaysISO, todayISO } from '../lib/dates';
+import { FEATURES } from '../features';
 import type { Snapshot } from '../lib/remote';
 import {
   dishName,
@@ -229,11 +230,28 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         Ingredient | undefined
       >;
       const method = methodOf(state.method);
+      // Everything drawn was in the pantry, so cooking pushes its window out.
+      const pantry = state.pantry.map((item) =>
+        names.includes(item.name) ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) } : item,
+      );
+
+      // With history off there is nowhere to send it, so the draw clears and the
+      // only lasting effect is the refreshed use-by dates.
+      if (!FEATURES.history) {
+        return {
+          ...state,
+          picked: null,
+          method: null,
+          pantry,
+          flash: `${names.join(', ')} — good for another two weeks.`,
+        };
+      }
 
       return {
         ...state,
         screen: 'plan',
         picked: null,
+        pantry,
         plan: [
           {
             id: crypto.randomUUID(),
@@ -246,10 +264,6 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           },
           ...state.plan,
         ],
-        // Everything drawn was in the pantry, so cooking pushes its window out.
-        pantry: state.pantry.map((item) =>
-          names.includes(item.name) ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) } : item,
-        ),
       };
     }
 

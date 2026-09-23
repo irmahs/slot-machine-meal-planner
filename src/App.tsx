@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import SignIn from './components/SignIn';
 import { CATEGORIES, labelOfCategory } from './data/reference';
+import { FEATURES } from './features';
 import { SETTLE_MS, canSpin, daysLeft, planSpin, reelsFrom } from './engine/reel';
 import { useRemoteSync } from './lib/useRemoteSync';
 import { AddIngredient } from './screens/AddIngredient';
@@ -89,7 +90,7 @@ export default function App() {
     ['spin', 'Draw', ''],
     ['pantry', 'Pantry', state.pantry.length],
     ['add', 'Add ingredient', ''],
-    ['plan', 'Cooked', state.plan.length],
+    ...(FEATURES.history ? ([['plan', 'Cooked', state.plan.length]] as Array<[Screen, string, number | '']>) : []),
     ['list', 'Shopping list', toBuy || ''],
     ['methods', 'Cooking methods', rotation],
     ['setup', 'Reel rules', ''],
@@ -162,7 +163,7 @@ export default function App() {
         {state.screen === 'spin' && <Draw state={state} dispatch={dispatch} onSpin={spin} />}
         {state.screen === 'pantry' && <Pantry state={state} dispatch={dispatch} />}
         {state.screen === 'add' && <AddIngredient state={state} dispatch={dispatch} />}
-        {state.screen === 'plan' && <Cooked state={state} />}
+        {state.screen === 'plan' && FEATURES.history && <Cooked state={state} />}
         {state.screen === 'list' && <ShoppingList state={state} dispatch={dispatch} />}
         {state.screen === 'methods' && <CookingMethods state={state} dispatch={dispatch} />}
         {state.screen === 'setup' && <ReelRules state={state} dispatch={dispatch} />}

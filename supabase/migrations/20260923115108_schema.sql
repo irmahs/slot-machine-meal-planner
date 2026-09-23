@@ -221,29 +221,10 @@ create table if not exists public.meal_planner_method_settings (
   primary key (user_id, id_method)
 );
 
-create table if not exists public.meal_planner_history (
-  -- Client-generated so the app can diff its own rows without a round trip.
-  id uuid primary key,
-  user_id uuid not null default auth.uid() references auth.users on delete cascade,
-  name_meal text not null,
-  note text not null default '',
-  -- The shape the dish was drawn as, kept so the history can show its icon
-  -- without re-deriving it from ingredients that may since have changed.
-  dish_style text not null default 'bowl'
-    check (dish_style in ('bowl', 'noodles', 'salad', 'tacos', 'skillet', 'roast')),
-  id_method smallint references public.meal_planner_cooking_methods,
-  date_cooked date not null default current_date,
-  created_at timestamptz not null default now()
-);
-
--- A meal is drawn from three ingredients, so the link is its own table; one row
--- per ingredient keeps the meal named once instead of repeated three times.
-create table if not exists public.meal_planner_history_ingredients (
-  id_history uuid not null references public.meal_planner_history on delete cascade,
-  id_ingredient uuid not null
-    references public.meal_planner_ingredients on delete cascade,
-  primary key (id_history, id_ingredient)
-);
+-- Cooking history is deliberately not here. The Cooked screen is behind
+-- FEATURES.history in src/features.ts, switched off, so nothing reads or writes
+-- it; turning it on means a new migration adding meal_planner_history and a link
+-- table for the ingredients a meal was drawn from.
 
 create table if not exists public.meal_planner_shopping_list (
   id uuid primary key default gen_random_uuid(),
@@ -270,10 +251,6 @@ create index if not exists meal_planner_pantry_user_expiry_idx
   on public.meal_planner_pantry (user_id, date_expiration);
 create index if not exists meal_planner_shopping_list_user_created_idx
   on public.meal_planner_shopping_list (user_id, created_at desc);
-create index if not exists meal_planner_history_user_date_idx
-  on public.meal_planner_history (user_id, date_cooked desc, created_at desc);
-create index if not exists meal_planner_history_ingredients_ingredient_idx
-  on public.meal_planner_history_ingredients (id_ingredient);
 
 
 -- ── Row-level security ───────────────────────────────────────────────────────
@@ -287,8 +264,6 @@ alter table public.meal_planner_cooking_methods enable row level security;
 alter table public.meal_planner_ingredients enable row level security;
 alter table public.meal_planner_pantry enable row level security;
 alter table public.meal_planner_method_settings enable row level security;
-alter table public.meal_planner_history enable row level security;
-alter table public.meal_planner_history_ingredients enable row level security;
 alter table public.meal_planner_shopping_list enable row level security;
 
 -- Reference data: readable by anyone signed in, writable by no one.
@@ -312,7 +287,7 @@ declare t text;
 begin
   foreach t in array array[
     'meal_planner_ingredients', 'meal_planner_pantry', 'meal_planner_method_settings',
-    'meal_planner_history', 'meal_planner_shopping_list'
+    'meal_planner_shopping_list'
   ] loop
     execute format('drop policy if exists %I on public.%I', 'own ' || t, t);
     execute format(
@@ -321,20 +296,3 @@ begin
       'own ' || t, t);
   end loop;
 end $$;
-
--- The link table has no user_id of its own; it inherits ownership from its meal.
-drop policy if exists "own history ingredients" on public.meal_planner_history_ingredients;
-create policy "own history ingredients" on public.meal_planner_history_ingredients
-  for all to authenticated
-  using (
-    exists (
-      select 1 from public.meal_planner_history h
-      where h.id = id_history and h.user_id = (select auth.uid())
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.meal_planner_history h
-      where h.id = id_history and h.user_id = (select auth.uid())
-    )
-  );
