@@ -178,8 +178,8 @@ account.
 Write a new migration rather than editing an applied one — `npx supabase migration new <name>`
 creates the timestamped file, and `npm run db:push` applies it. `npm run db:diff` shows what the
 linked database has that the migrations do not, which is how a change made by hand in the
-dashboard gets captured back into the repo. The two files there now are the whole history: the
-tables, then ingredient categories.
+dashboard gets captured back into the repo. There is one file there now, holding the whole
+schema — nothing had been pushed when it was written, so there was no history to preserve.
 
 Signing in loads your rows into the reducer; from then on the reducer is mirrored back into
 Postgres — write only what changed. The reducer stays the single source of truth in the session, so
