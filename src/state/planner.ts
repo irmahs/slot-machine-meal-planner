@@ -1,73 +1,117 @@
-import { DEFAULT_CATEGORY, type CategoryCode } from '../data/categories';
 import type { GroceryItem, Ingredient, PantryItem, PlanEntry } from '../data/model';
-import { DEFAULT_UNIT, type UnitCode } from '../data/units';
+import {
+  DEFAULT_UNIT,
+  METHODS,
+  PROTEIN_KINDS,
+  STARCH_KINDS,
+  VEGETABLE_KINDS,
+  type CategoryCode,
+  type DietRule,
+  type MethodCode,
+  type UnitCode,
+} from '../data/reference';
 import { addDaysISO, todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
-import { dishName, pickedNames, reelsFrom, settleIdx, type SpinPlan, type Triple } from '../engine/reel';
+import {
+  dishName,
+  ingredientOf,
+  methodOf,
+  pickedNames,
+  reelsFrom,
+  settledIdx,
+  starchKind,
+  styleOf,
+  type SpinPlan,
+  type Triple,
+} from '../engine/reel';
 
-export type Screen = 'spin' | 'pantry' | 'plan' | 'list' | 'setup';
-export type RepeatWindow = 3 | 5 | 7 | 14;
+export type Screen = 'spin' | 'pantry' | 'add' | 'plan' | 'list' | 'methods' | 'setup';
 
-/** Which add form the new-ingredient panel was opened from, so the result lands back in it. */
-export type PickerTarget = 'pantry' | 'grocery';
+/** The Add ingredient form: one ingredient being described. */
+export interface AddDraft {
+  name: string;
+  shortName: string;
+  category: CategoryCode;
+  /** One per category, so switching reels does not lose what was already picked. */
+  proteinKind: string;
+  vegetableKind: string;
+  starchKind: string;
+  glutenFree: boolean;
+  days: number;
+  qty: string;
+  unit: UnitCode;
+  /** Straight into the pantry, or onto the shopping list. */
+  have: boolean;
+}
+
+/** The pantry's own add row: an ingredient you already have, being stocked. */
+export interface StockDraft {
+  name: string;
+  qty: string;
+  unit: UnitCode;
+  days: number;
+}
 
 export interface PlannerState {
   screen: Screen;
-  drawer: boolean;
-  idx: Triple<number>;
-  locks: Triple<boolean>;
-  dur: Triple<string>;
-  spinning: boolean;
-  /** The names under the payline once a spin settles; null for a reel with nothing on it. */
-  picked: Triple<string | null> | null;
-  /** Your ingredients, each with the category that puts it on a reel. */
   catalogue: Ingredient[];
   pantry: PantryItem[];
   plan: PlanEntry[];
   grocery: GroceryItem[];
-  repeatDays: RepeatWindow;
+  /** Methods switched off. Absence means on, so a new account has all of them. */
+  methodsOff: MethodCode[];
+  idx: Triple<number>;
+  locks: Triple<boolean>;
+  dur: Triple<string>;
+  spinning: boolean;
+  picked: Triple<string | null> | null;
+  method: MethodCode | null;
+  diets: DietRule[];
+  repeatDays: number;
   weighting: boolean;
-  /** The ingredient chosen in the fridge's dropdown; '' when nothing is chosen. */
-  draftName: string;
-  /** ISO date the new item goes off, straight from the picker. */
-  draftExpiry: string;
-  /** Kept as typed text so the field can be empty or half-written; parsed when the item is added. */
-  draftQty: string;
-  draftUnit: UnitCode;
-  draftGroc: string;
-  draftGrocQty: string;
-  draftGrocUnit: UnitCode;
-  /** The "new ingredient" panel: which form opened it, and what is being typed into it. */
-  newFor: PickerTarget | null;
-  newName: string;
-  newCategory: CategoryCode;
+  pantryFilter: CategoryCode | 'all';
+  draft: AddDraft;
+  stock: StockDraft;
+  flash: string;
 }
+
+const DRAFT0: AddDraft = {
+  name: '',
+  shortName: '',
+  category: 'protein',
+  proteinKind: 'poultry',
+  vegetableKind: 'leafy',
+  starchKind: 'grain',
+  glutenFree: true,
+  days: 7,
+  qty: '',
+  unit: DEFAULT_UNIT,
+  have: true,
+};
+
+const STOCK0: StockDraft = { name: '', qty: '1', unit: DEFAULT_UNIT, days: 7 };
 
 export function createInitialState(): PlannerState {
   return {
     screen: 'spin',
-    drawer: false,
+    catalogue: [],
+    pantry: [],
+    plan: [],
+    grocery: [],
+    methodsOff: [],
     idx: [0, 0, 0],
     locks: [false, false, false],
     dur: ['0s', '0s', '0s'],
     spinning: false,
     picked: null,
-    catalogue: [],
-    pantry: [],
-    plan: [],
-    grocery: [],
+    method: null,
+    diets: [],
     repeatDays: 7,
     weighting: true,
-    draftName: '',
-    draftExpiry: addDaysISO(DEFAULT_WINDOW),
-    draftQty: '1',
-    draftUnit: DEFAULT_UNIT,
-    draftGroc: '',
-    draftGrocQty: '1',
-    draftGrocUnit: DEFAULT_UNIT,
-    newFor: null,
-    newName: '',
-    newCategory: DEFAULT_CATEGORY,
+    pantryFilter: 'all',
+    draft: DRAFT0,
+    stock: STOCK0,
+    flash: '',
   };
 }
 
@@ -77,37 +121,36 @@ export function snapshotOf(state: PlannerState): Snapshot {
     pantry: state.pantry,
     plan: state.plan,
     grocery: state.grocery,
+    methodsOff: state.methodsOff,
   };
 }
+
+export const kindOfDraft = (d: AddDraft): string =>
+  d.category === 'protein' ? d.proteinKind : d.category === 'vegetable' ? d.vegetableKind : d.starchKind;
 
 export type Action =
   | { type: 'state/hydrate'; snapshot: Snapshot }
   | { type: 'screen/go'; screen: Screen }
-  | { type: 'drawer/set'; open: boolean }
   | { type: 'reel/toggleLock'; reel: number }
   | { type: 'spin/start'; plan: SpinPlan }
-  | { type: 'spin/settle'; targets: Triple<number> }
+  | { type: 'spin/settle'; target: Triple<number>; method: MethodCode | null }
   | { type: 'dish/cook' }
-  | { type: 'ingredient/startNew'; target: PickerTarget }
-  | { type: 'ingredient/cancelNew' }
-  | { type: 'ingredient/newName'; value: string }
-  | { type: 'ingredient/newCategory'; category: CategoryCode }
-  | { type: 'ingredient/create' }
-  | { type: 'pantry/select'; value: string }
-  | { type: 'pantry/draftExpiry'; value: string }
-  | { type: 'pantry/draftQty'; value: string }
-  | { type: 'pantry/draftUnit'; unit: UnitCode }
-  | { type: 'pantry/add' }
+  | { type: 'dish/clear' }
+  | { type: 'draft/patch'; patch: Partial<AddDraft> }
+  | { type: 'draft/submit' }
+  | { type: 'stock/patch'; patch: Partial<StockDraft> }
+  | { type: 'stock/submit' }
   | { type: 'pantry/remove'; name: string }
-  | { type: 'grocery/select'; value: string }
-  | { type: 'grocery/draftQty'; value: string }
-  | { type: 'grocery/draftUnit'; unit: UnitCode }
-  | { type: 'grocery/add' }
+  | { type: 'pantry/filter'; filter: CategoryCode | 'all' }
+  | { type: 'grocery/add'; name: string }
   | { type: 'grocery/toggle'; name: string }
   | { type: 'grocery/remove'; name: string }
   | { type: 'grocery/stock'; name: string }
-  | { type: 'rules/repeatDays'; days: RepeatWindow }
-  | { type: 'rules/toggleWeighting' };
+  | { type: 'method/toggle'; code: MethodCode }
+  | { type: 'rules/toggleDiet'; diet: DietRule }
+  | { type: 'rules/repeatDays'; days: number }
+  | { type: 'rules/toggleWeighting' }
+  | { type: 'flash/clear' };
 
 /** Refreshing a window never brings an expiry date forward. */
 function laterOf(expiresOn: string, days: number): string {
@@ -121,16 +164,8 @@ function parseQuantity(typed: string): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
-export function categoryOf(catalogue: Ingredient[], name: string): CategoryCode {
-  return catalogue.find((i) => i.name === name)?.category ?? DEFAULT_CATEGORY;
-}
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-function known(catalogue: Ingredient[], name: string): boolean {
-  return catalogue.some((i) => i.name.toLowerCase() === name.toLowerCase());
-}
-
-/** How far ahead the date picker starts, and the windows the app sets on your behalf. */
-const DEFAULT_WINDOW = 5;
 const STOCKED_WINDOW = 6;
 const COOKED_WINDOW = 14;
 
@@ -143,13 +178,11 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         pantry: action.snapshot.pantry,
         plan: action.snapshot.plan,
         grocery: action.snapshot.grocery,
+        methodsOff: action.snapshot.methodsOff,
       };
 
     case 'screen/go':
-      return { ...state, screen: action.screen, drawer: false };
-
-    case 'drawer/set':
-      return { ...state, drawer: action.open };
+      return { ...state, screen: action.screen, flash: '' };
 
     case 'reel/toggleLock': {
       const locks = [...state.locks] as Triple<boolean>;
@@ -161,31 +194,41 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       return {
         ...state,
         idx: action.plan.idx,
-        dur: action.plan.durations,
+        dur: action.plan.dur,
         spinning: true,
         picked: null,
+        method: null,
       };
 
     case 'spin/settle': {
-      // The fridge can change while the reels turn, so the targets are read back against the
-      // reels as they are now rather than as they were when the spin was planned.
-      const reels = reelsFrom(state.pantry);
-      const targets = action.targets.map((target, k) =>
-        reels[k].length ? target % reels[k].length : 0,
+      // The pantry can change while the reels turn, so read the targets back
+      // against the reels as they are now rather than as they were planned.
+      const reels = reelsFrom(state.pantry, state.catalogue);
+      const target = action.target.map((t, k) =>
+        reels[k].length ? t % reels[k].length : 0,
       ) as Triple<number>;
       return {
         ...state,
         spinning: false,
-        picked: pickedNames(targets, reels),
-        idx: settleIdx(targets, reels),
+        picked: pickedNames(target, reels),
+        method: action.method,
+        idx: settledIdx(target, reels),
         dur: ['0s', '0s', '0s'],
       };
     }
 
+    case 'dish/clear':
+      return { ...state, picked: null, method: null };
+
     case 'dish/cook': {
       if (!state.picked) return state;
-      const names = state.picked.filter((name): name is string => name !== null);
+      const names = state.picked.filter((n): n is string => n !== null);
       if (!names.length) return state;
+
+      const picks = state.picked.map((n) => (n ? ingredientOf(state.catalogue, n) : undefined)) as Triple<
+        Ingredient | undefined
+      >;
+      const method = methodOf(state.method);
 
       return {
         ...state,
@@ -195,120 +238,111 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           {
             id: crypto.randomUUID(),
             cookedOn: todayISO(),
-            dish: dishName(state.picked),
-            sub: 'Just added from a pull',
+            dish: dishName(picks, state.method),
+            note: method ? `Just drawn · ${method.label.toLowerCase()}` : 'Just drawn',
+            style: styleOf(picks[2]),
+            method: state.method,
             ingredients: names,
           },
           ...state.plan,
         ],
-        // Everything drawn was in the fridge, so cooking only pushes its window back out.
+        // Everything drawn was in the pantry, so cooking pushes its window out.
         pantry: state.pantry.map((item) =>
           names.includes(item.name) ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) } : item,
         ),
       };
     }
 
-    case 'ingredient/startNew':
-      return { ...state, newFor: action.target, newName: '', newCategory: DEFAULT_CATEGORY };
+    case 'draft/patch': {
+      const draft = { ...state.draft, ...action.patch };
+      // Choosing a starch kind carries its gluten default across, unless the
+      // same patch said otherwise.
+      if (action.patch.starchKind !== undefined && action.patch.glutenFree === undefined) {
+        draft.glutenFree = starchKind(action.patch.starchKind)?.glutenFree ?? false;
+      }
+      return { ...state, draft, flash: '' };
+    }
 
-    case 'ingredient/cancelNew':
-      return { ...state, newFor: null, newName: '' };
+    case 'draft/submit': {
+      const d = state.draft;
+      const name = d.name.trim();
+      if (!name) return state;
 
-    case 'ingredient/newName':
-      return { ...state, newName: action.value };
-
-    case 'ingredient/newCategory':
-      return { ...state, newCategory: action.category };
-
-    case 'ingredient/create': {
-      const name = state.newName.trim();
-      if (!name || !state.newFor) return state;
-
-      // Naming something that already exists just selects it, rather than making a second row.
-      const existing = state.catalogue.find((i) => i.name.toLowerCase() === name.toLowerCase());
-      const chosen = existing?.name ?? name;
-      const selection =
-        state.newFor === 'pantry' ? { draftName: chosen } : { draftGroc: chosen };
+      const ingredient: Ingredient = {
+        name,
+        shortName: d.shortName.trim() || null,
+        category: d.category,
+        kind: kindOfDraft(d),
+        glutenFree: d.category === 'starch' ? d.glutenFree : null,
+      };
+      const label = d.category === 'vegetable' ? 'vegetables' : d.category;
 
       return {
         ...state,
-        ...selection,
-        catalogue: existing
-          ? state.catalogue
-          : [...state.catalogue, { name, category: state.newCategory }],
-        newFor: null,
-        newName: '',
+        catalogue: [...state.catalogue.filter((i) => !same(i.name, name)), ingredient],
+        pantry: d.have
+          ? [
+              { name, qty: parseQuantity(d.qty), unit: d.unit, expiresOn: addDaysISO(d.days) },
+              ...state.pantry.filter((p) => !same(p.name, name)),
+            ]
+          : state.pantry.filter((p) => !same(p.name, name)),
+        grocery: d.have
+          ? state.grocery.filter((g) => !same(g.name, name))
+          : [
+              {
+                name,
+                qty: parseQuantity(d.qty),
+                unit: d.unit,
+                note: `New on the ${label} reel`,
+                acquired: false,
+              },
+              ...state.grocery.filter((g) => !same(g.name, name)),
+            ],
+        draft: { ...d, name: '', shortName: '', qty: '', days: 7 },
+        flash: `${name} is on the ${label} reel${d.have ? ' and in the pantry.' : ', and on the shopping list.'}`,
       };
     }
 
-    case 'pantry/select':
-      return { ...state, draftName: action.value };
+    case 'stock/patch':
+      return { ...state, stock: { ...state.stock, ...action.patch } };
 
-    case 'pantry/draftExpiry':
-      return { ...state, draftExpiry: action.value };
-
-    case 'pantry/draftQty':
-      return { ...state, draftQty: action.value };
-
-    case 'pantry/draftUnit':
-      return { ...state, draftUnit: action.unit };
-
-    case 'pantry/add': {
-      const name = state.draftName.trim();
-      if (!name || !known(state.catalogue, name)) return state;
+    case 'stock/submit': {
+      const name = state.stock.name.trim();
+      if (!name || !state.catalogue.some((i) => i.name === name)) return state;
       return {
         ...state,
         pantry: [
           {
             name,
-            category: categoryOf(state.catalogue, name),
-            expiresOn: state.draftExpiry,
-            qty: parseQuantity(state.draftQty),
-            unit: state.draftUnit,
+            qty: parseQuantity(state.stock.qty),
+            unit: state.stock.unit,
+            expiresOn: addDaysISO(state.stock.days),
           },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name !== name),
-        draftName: '',
-        draftExpiry: addDaysISO(DEFAULT_WINDOW),
-        draftQty: '1',
-        draftUnit: DEFAULT_UNIT,
+        stock: STOCK0,
       };
     }
 
     case 'pantry/remove':
       return { ...state, pantry: state.pantry.filter((p) => p.name !== action.name) };
 
-    case 'grocery/select':
-      return { ...state, draftGroc: action.value };
-
-    case 'grocery/draftQty':
-      return { ...state, draftGrocQty: action.value };
-
-    case 'grocery/draftUnit':
-      return { ...state, draftGrocUnit: action.unit };
+    case 'pantry/filter':
+      return { ...state, pantryFilter: action.filter };
 
     case 'grocery/add': {
-      const name = state.draftGroc.trim();
-      if (!name || !known(state.catalogue, name)) return state;
-      const already = state.grocery.some((g) => g.name === name);
+      const name = action.name.trim();
+      if (!name || state.grocery.some((g) => same(g.name, name))) return state;
+      // Only something you have described can go on the list, since the pantry
+      // and the reels both need to know its category.
+      if (!state.catalogue.some((i) => i.name === name)) return state;
       return {
         ...state,
-        grocery: already
-          ? state.grocery
-          : [
-              {
-                name,
-                category: categoryOf(state.catalogue, name),
-                qty: parseQuantity(state.draftGrocQty),
-                unit: state.draftGrocUnit,
-                acquired: false,
-              },
-              ...state.grocery,
-            ],
-        draftGroc: '',
-        draftGrocQty: '1',
-        draftGrocUnit: DEFAULT_UNIT,
+        grocery: [
+          { name, qty: 1, unit: DEFAULT_UNIT, note: 'Added by you', acquired: false },
+          ...state.grocery,
+        ],
       };
     }
 
@@ -330,10 +364,9 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         pantry: [
           {
             name: action.name,
-            category: categoryOf(state.catalogue, action.name),
-            expiresOn: addDaysISO(STOCKED_WINDOW),
             qty: bought?.qty ?? 1,
             unit: bought?.unit ?? DEFAULT_UNIT,
+            expiresOn: addDaysISO(STOCKED_WINDOW),
           },
           ...state.pantry.filter((p) => p.name !== action.name),
         ],
@@ -341,10 +374,36 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       };
     }
 
+    case 'method/toggle':
+      return {
+        ...state,
+        methodsOff: state.methodsOff.includes(action.code)
+          ? state.methodsOff.filter((c) => c !== action.code)
+          : [...state.methodsOff, action.code],
+      };
+
+    case 'rules/toggleDiet':
+      return {
+        ...state,
+        diets: state.diets.includes(action.diet)
+          ? state.diets.filter((d) => d !== action.diet)
+          : [...state.diets, action.diet],
+      };
+
     case 'rules/repeatDays':
       return { ...state, repeatDays: action.days };
 
     case 'rules/toggleWeighting':
       return { ...state, weighting: !state.weighting };
+
+    case 'flash/clear':
+      return { ...state, flash: '' };
   }
 }
+
+/** The methods a draw may choose from. */
+export const methodsOn = (state: PlannerState) =>
+  METHODS.filter((m) => !state.methodsOff.includes(m.code));
+
+export const kindsFor = (category: CategoryCode) =>
+  category === 'protein' ? PROTEIN_KINDS : category === 'vegetable' ? VEGETABLE_KINDS : STARCH_KINDS;

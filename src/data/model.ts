@@ -1,47 +1,46 @@
-import type { CategoryCode } from './categories';
-import type { UnitCode } from './units';
+import type { CategoryCode, DishStyle, MethodCode, UnitCode } from './reference';
 
 /**
- * The app's types. There is no ingredient catalogue in the source — the reels are built from
- * what is in the fridge, and the fridge is built from ingredients you create. Nothing about a
- * specific ingredient is known ahead of time.
+ * The app's types. There is no ingredient list in the source: an ingredient is a
+ * row you create on the Add ingredient screen, described with the fixed
+ * vocabularies in reference.ts. Everything else points at one by name.
  */
 
-/** A row of your own ingredient list. The category is set once, here, and is what puts the
- *  ingredient on a reel; everything else points at the ingredient by name. */
 export interface Ingredient {
   name: string;
+  /** What a dish name calls it — "Chicken" for Chicken Thighs. Null uses `name`. */
+  shortName: string | null;
   category: CategoryCode;
+  /** A code from the kind table belonging to `category`. */
+  kind: string;
+  /** Starches only; the kind supplies the default and this is the answer. */
+  glutenFree: boolean | null;
 }
 
+/** What is actually in the pantry. The reels are built from these alone. */
 export interface PantryItem {
   name: string;
-  /**
-   * Copied from the ingredient when the item is stocked, so the reels and the rows can read a
-   * category without carrying the whole catalogue around. The stored truth is the id_category
-   * column on the ingredient row; this is a projection of it.
-   */
-  category: CategoryCode;
-  /** The last day it is good for, as an ISO date. Days remaining are derived from it. */
-  expiresOn: string;
   qty: number;
   unit: UnitCode;
+  /** The last day it is good for, as an ISO date. Days left are derived from it. */
+  expiresOn: string;
 }
 
 export interface PlanEntry {
   id: string;
-  /** ISO date; the day badge label is derived from it so "Tonight" stops being tonight. */
   cookedOn: string;
   dish: string;
-  sub: string;
-  /** The picks the dish was drawn from. */
+  note: string;
+  /** Kept as drawn, so the history keeps its icon even if the ingredient changes. */
+  style: DishStyle;
+  method: MethodCode | null;
   ingredients: string[];
 }
 
 export interface GroceryItem {
   name: string;
-  category: CategoryCode;
   qty: number;
   unit: UnitCode;
+  note: string;
   acquired: boolean;
 }

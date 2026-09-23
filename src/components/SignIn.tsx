@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { sendMagicLink } from '../lib/supabase/auth';
 import { isConfigured } from '../lib/supabase/client';
-import styles from './SignIn.module.css';
 
 type Status = { tone: 'idle' | 'error'; message: string };
 
@@ -26,16 +25,16 @@ export default function SignIn({ onGuest }: { onGuest: () => void }) {
   }
 
   return (
-    <div className={styles.screen}>
-      <h1 className={styles.brand}>Spin Supper</h1>
-      <p className={styles.blurb}>
+    <div className="signin">
+      <h1 className="signin-brand">Spin Supper</h1>
+      <p className="signin-blurb">
         {isConfigured
           ? 'Your fridge, your week and your list live under your email address. Enter it and we’ll send a sign-in link — no password to remember.'
           : 'Saving your fridge needs a database, and this copy isn’t connected to one yet. You can still have a look around.'}
       </p>
-      <form className={styles.form} onSubmit={send}>
+      <form className="signin-form" onSubmit={send}>
         <input
-          className={styles.input}
+          className="signin-input"
           type="email"
           required
           autoComplete="email"
@@ -45,19 +44,19 @@ export default function SignIn({ onGuest }: { onGuest: () => void }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <button type="submit" className={styles.send} disabled={sending || !isConfigured}>
+        <button type="submit" className="signin-send" disabled={sending || !isConfigured}>
           {sending ? 'Sending…' : 'Send link'}
         </button>
       </form>
-      <p className={styles.status} data-tone={status.tone} aria-live="polite">
+      <p className="signin-status" data-tone={status.tone} aria-live="polite">
         {status.message}
       </p>
 
-      <div className={styles.or}>
-        <button type="button" className={styles.guest} onClick={onGuest}>
+      <div className="signin-or">
+        <button type="button" className="signin-guest" onClick={onGuest}>
           Have a look around
         </button>
-        <p className={styles.guestNote}>
+        <p className="signin-guestNote">
           No account, a basket to play with, and nothing saved — close the tab and it’s gone.
         </p>
       </div>

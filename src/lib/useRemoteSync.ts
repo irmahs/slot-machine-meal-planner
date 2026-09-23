@@ -94,7 +94,8 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
       prev.catalogue === next.catalogue &&
       prev.pantry === next.pantry &&
       prev.plan === next.plan &&
-      prev.grocery === next.grocery;
+      prev.grocery === next.grocery &&
+      prev.methodsOff === next.methodsOff;
     if (unchanged) return;
 
     synced.current = next;

@@ -2,59 +2,71 @@
 
 A mobile web app that decides dinner for you.
 
-Three reels — **Protein**, **Fibre**, **Grain** — spin from what is actually in your fridge,
-weighted so items closest to expiring come up more often. Lock any column you like, draw the
-rest again, then commit the dish to your week. Built for someone who wants to meal-prep but
+Three reels — **Protein**, **Vegetables**, **Starch** — spin from what is actually in your
+pantry, weighted so items closest to expiring come up more often. Hold any column you like, draw
+the rest again, then send the dish into the pot. Built for someone who wants to meal-prep but
 loses track of what they have, so food expires and the same three dishes come round on repeat.
 
 ## Screens
 
 | Screen | What it does |
 | --- | --- |
-| **Spin** | Three reels, a payline, and one button. Tap a column to hold it, draw again for the rest, then send the dish into the pot. |
-| **Fridge** | The inventory the reels weight by, soonest to go off first, with a use-by date on every item. |
-| **Cooked** | This week's history — what was drawn, and why it was drawn. |
-| **Shopping list** | What to pick up. Stocking an item moves it into the fridge, where the reels can draw it. |
-| **Reel rules** | What each reel currently holds, the no-repeat window, and the expiry weighting switch. |
+| **Draw** | Three reels, a payline, and one button. Click a column to hold it, draw again for the rest, then send the dish into the pot. Space draws too. |
+| **Pantry** | What is stocked, soonest to go off first. Stocking something picks from the ingredients you have already described. |
+| **Add ingredient** | Describes a new one: its name, its reel, and its kind. The kind is what dish names and diet filters read. |
+| **Cooked** | What you drew and cooked, each with the icon of the shape it was drawn as. |
+| **Shopping list** | What to pick up. Moving something into the pantry is what lets it spin. |
+| **Cooking methods** | Which methods are in rotation. Each draw picks one and names the dish after it. |
+| **Reel rules** | Diet constraints, the no-repeat window, and the expiry weighting switch. |
 
-A burger drawer on the left moves between them.
+A permanent sidebar moves between them.
 
 ## How the machine works
 
-**The spin.** Each reel renders its six-item list repeated 8× into one strip and translates it by
-`-idx * 63px`. The payline is the *middle* visible cell — strip index `idx + 1`, not `idx`. On a
+**The spin.** Each reel renders its list repeated 10× into one strip and translates it by
+`-idx * 84px`. The payline is the *middle* visible cell — strip index `idx + 1`, not `idx`. On a
 draw, each unlocked reel picks a target by weight, then travels four full turns plus one extra
 turn per reel for stagger, over `1.50s / 1.92s / 2.34s`. At `2500ms` everything snaps back onto
-the payline and the result is published. Locked reels keep whatever is already on their payline.
+the payline and the result is published. Held reels keep whatever is already on their payline.
+
+**What the reels hold: the pantry, nothing else.** `reelsFrom()` slices what is stocked by the
+category of each item's ingredient, soonest to go off at the top. An ingredient you have
+described but not stocked never spins. A reel with nothing in it disables the draw, because a
+slot machine with an empty column has nothing to pull.
 
 **The weighting.** A pantry item stores the date it goes off, and days remaining are derived from
-that date every time they are read — so a fridge left alone for a week comes back a week more
+that date every time they are read — so a pantry left alone for a week comes back a week more
 urgent. With weighting on, an item with two days left is worth `6` against a well-stocked item's
-`1` — about four times as likely to come up. Turn weighting off and every item on a reel weighs the
-same.
+`1` — about four times as likely to come up. Turn it off and everything on a reel weighs the same.
 
-**What the reels hold: your fridge, nothing else.** `reelsFrom()` slices the pantry by category —
-one reel per category, soonest to go off at the top — and that is the whole of it. There is no
-ingredient catalogue in the source, so the app knows nothing about any particular food. A reel with
-nothing in it renders as *nothing yet · add a protein* and the draw stays disabled until all three
-have something, because a slot machine with an empty column has nothing to pull.
+**Categories and kinds.** An ingredient belongs to one of three categories, and within it to one
+*kind*. The three kind tables are separate because they are genuinely different shapes: a protein
+kind carries the diet it counts as and whether it is red meat; a vegetable kind carries the word
+its dish name uses; a starch kind carries the shape of the dish and whether it has gluten. That is
+what makes the diet filters real rather than a list of banned names — *No red meat* drops anything
+whose kind says red meat, including one you added yourself.
 
-**How an ingredient is categorised.** By a column, set by you, once. Every ingredient you create
-carries an `id_category` — Protein, Fibre or Grain — chosen in the same panel where you name it,
-and that column is the only thing that decides which reel it spins on. Nothing is inferred from the
-name, and nothing is guessed.
+**The dish name.** Composed from the picks and the method, never looked up. The starch's kind
+decides the shape of the name, the vegetable's kind supplies the word describing it, and the
+method supplies the participle in front:
 
-**The dish name.** Composed from the three picks, never looked up. Four templates describe the
-*shape* of a name — `{protein} with {fibre} and {grain}`, `{grain} bowl with {protein} and
-{fibre}`, and two more — and a small hash of the three names picks one, so the same three picks
-always read the same way. It knows no recipes and no ingredients, which is what lets it name a dish
-out of three things you typed yourself.
+```
+Air-fried   Chicken      Rice        Bowl    with charred   broccoli
+└ method    └ protein    └ starch    └ from  └ vegetable    └ vegetable
+  phrase      short name   short name  starch   kind's word
+                                       kind
+```
+
+`phrase` is stored on the method rather than derived, because no rule turns *Air-fry* into
+*Air-fried* and *Steam* into *Steamed* and *Slow-cook* into *Slow-cooked*. Switch every method off
+and the name simply loses its front: *Chicken Rice Bowl with charred broccoli*.
+
 
 ## Stack
 
 - **React 19 + TypeScript**, built with **Vite**
-- Plain CSS: design tokens in `src/styles/tokens.css`, component styles in CSS modules
-- **Lucide** icons at stroke-width 2.75
+- Plain CSS: one stylesheet, `src/styles.css`, with the palette as custom properties on `:root`
+- Hand-drawn **Lucide-style glyphs** at stroke-width 2.75, inlined rather than a package
 - **Vitest** over the reel engine — the spin maths, weighting, and dish naming
 - **Supabase** for storage and magic-link sign-in — where your ingredients, fridge, week and list
   live
@@ -71,12 +83,9 @@ npm run lint     # typecheck
 
 ### Layout
 
-The design was drawn for a 402×874 phone, and below 900px that is exactly what you get: a single
-scrolling column with the burger drawer sliding over it. At 900px and above the drawer docks as a
-permanent sidebar, the burger disappears, content sits in a centred 780px column, and the Spin
-screen splits in two — reels on the left, tonight's dish on the right, so a draw no longer pushes
-the result below the fold. One breakpoint, `DESKTOP` in `src/lib/useMediaQuery.ts`, drives both the
-CSS and the drawer's docked state.
+A desktop app: a permanent sidebar and a content column beside it. The Draw screen splits in two —
+reels on the left, tonight's dish on the right — so a draw never pushes the result below the fold,
+and it collapses to one column when the window is too narrow to hold both.
 
 ### Signing in, or not
 
@@ -87,7 +96,7 @@ reaches Supabase, which also means the app is usable with no credentials configu
 
 ## Storage (Supabase)
 
-Every screen but Spin reads its rows from Supabase, so this is setup, not an extra.
+Every screen but Draw reads its rows from Supabase, so this is setup, not an extra.
 
 ### The data
 
@@ -95,28 +104,35 @@ Every table carries the `user_id` of the account that owns the row, and its RLS 
 that to `auth.uid()`. You sign in with an email; Supabase maps the address to a stable user id, so
 the data follows the account even if the address changes.
 
-| Table | Columns | Holds |
-| --- | --- | --- |
-| `meal_planner_units` | `id`, `code`, `label` | The unit enum — piece, g, kg, ml, l, bag, block, pack, bunch, can. Shared reference data, not per user. |
-| `meal_planner_categories` | `id`, `code`, `label` | The three reels — protein, fibre, grain. Shared reference data, not per user. |
-| `meal_planner_ingredients` | `id`, `user_id`, `name`, `id_category` | Your ingredient list. `id_category` is how an ingredient is categorised — set once, on creation, and the only thing that decides its reel. |
-| `meal_planner_pantry` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `date_expiration` | What's in the fridge. `date_expiration` is picked on a date input and is what the reels weight by. |
-| `meal_planner_history` | `id`, `user_id`, `name_meal`, `note`, `date_cooked` | One row per dish sent into the pot. Drives the Cooked screen and its two stat cards. |
-| `meal_planner_history_ingredients` | `id_history`, `id_ingredient` | Which three ingredients a meal was drawn from. Separate table because a meal has three, not one. |
-| `meal_planner_shopping_list` | `id`, `user_id`, `id_ingredient`, `quantity`, `id_unit`, `acquired` | What to buy, and whether it has been bought. |
+| Table | Holds |
+| --- | --- |
+| `meal_planner_categories` | The three reels — protein, vegetables, starch. Shared, not per user. |
+| `meal_planner_protein_kinds` | Red meat, white meat, game, poultry, fish, seafood, eggs & dairy, plant-based — each with the `diet` it counts as and whether it is `is_red_meat`. |
+| `meal_planner_vegetable_kinds` | Leafy, brassica, root, fruiting, pods, allium, mushroom — each with the `cooking_word` its dish name uses. |
+| `meal_planner_starch_kinds` | Grains, noodles, bread, wraps, potatoes, whole grains — each with a `dish_style` and a gluten default. |
+| `meal_planner_units` | Twelve units, from `g` to `serving` to `pot`. |
+| `meal_planner_cooking_methods` | Ten methods, each with the `phrase` a dish name uses. |
+| `meal_planner_ingredients` | Your ingredient list: `name`, `short_name`, `id_category`, one of three kind columns, and `gluten_free` for starches. |
+| `meal_planner_pantry` | What is stocked: quantity, unit and `date_expiration`. The reels are built from this table alone. |
+| `meal_planner_method_settings` | A row only for a method you switched **off**, so a new account has all ten. |
+| `meal_planner_history` | One row per dish sent into the pot, keeping the `dish_style` and `id_method` it was drawn with. |
+| `meal_planner_history_ingredients` | Which ingredients a meal was drawn from. Its own table because a meal has three, not one. |
+| `meal_planner_shopping_list` | What to buy, why, and whether it has been bought. |
 
-Three notes on the shape:
+Four notes on the shape:
 
-- **`id_ingredient`, not a repeated name.** The history and list key on an ingredient id, so the
-  pantry does too and the name lives in `meal_planner_ingredients`. The app still works in names;
-  ids are resolved at the boundary in `src/lib/remote.ts`.
-- **A quantity is a number and a unit**: `600` + `g`, `1` + `bag`, `2` + `piece`. Units come from
-  `meal_planner_units` rather than free text, so the set stays closed; `src/data/units.ts` mirrors
-  it for the app's own model, and codes are resolved to ids at the boundary. A count in `piece`
-  renders as `×2`, anything else as `600 g`.
+- **`id_ingredient`, not a repeated name.** Everything keys on an ingredient id and the name lives
+  in `meal_planner_ingredients`. The app works in names; ids are resolved at the boundary in
+  `src/lib/remote.ts`.
+- **Three kind tables, not one.** They carry different columns, which is the argument for keeping
+  them apart. An ingredient has three nullable kind columns and a check constraint that exactly the
+  one matching its category is set, so a starch can never carry a protein's kind.
+- **A quantity is a number and a unit**: `600` + `g`, `1` + `bag`, `2` + `piece`. A count in
+  `piece` renders as `×2`, anything else as `600 g`.
 - **Reel rules are not stored.** Weighting is computed from `date_expiration` at draw time, so
-  there is no rules table; the no-repeat window and the weighting switch live in memory and reset
-  on reload.
+  there is no rules table; the diet chips, the no-repeat window and the weighting switch live in
+  memory and reset on reload. Cooking methods *are* stored, because switching one off is a
+  standing preference rather than a setting for one draw.
 
 1. **Create the project** — [supabase.com/dashboard](https://supabase.com/dashboard) → *New
    project*. The Free plan allows two active projects per account.
@@ -239,17 +255,16 @@ supabase/
   migrations/           the schema's history, applied by `supabase db push`
 src/
   data/model.ts         the app's types — no ingredient data anywhere
-  data/categories.ts    the three reels, mirroring meal_planner_categories
-  data/units.ts         the unit enum, mirroring meal_planner_units
-  engine/               the machine: weighted pick, spin maths, dish naming
+  data/reference.ts     the fixed vocabularies, mirroring the reference tables
+  engine/reel.ts        the machine: reels from the pantry, weighting, spin maths, dish naming
   state/planner.ts      all app state and every action over it
   lib/supabase/         client.ts (browser client), auth.ts (magic link, session, sign out)
   lib/remote.ts         load a snapshot, write only what changed
   lib/guest.ts          the guest tab: one sessionStorage key, lost with the tab
   lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
-  components/           TopBar, Drawer, Reel, CookLoader, SignIn, IngredientPicker
-  screens/              Spin, Fridge, Cooked, Shopping, Rules
-  styles/               tokens.css (design tokens), base.css
+  components/           Icon, Switch, SignIn
+  screens/              Draw, Pantry, AddIngredient, Cooked, ShoppingList, CookingMethods, ReelRules
+  styles.css            one stylesheet; the palette lives in :root
 ```
 
 There is no `server.ts` or `middleware.ts`: this is a static single-page app with no server
@@ -257,11 +272,10 @@ runtime, so the anon key plus row-level security is the whole security model.
 
 ## Design
 
-Built from a design handoff with two visual directions: *Organic* (cream/terracotta, the approved
-information architecture and behaviour for all five screens) and *2a Basket* (the approved visual
-language for the spin screen). The spin screen wears the 2a Basket skin — bare reel columns on a
-`#efe9d9` ground, 44px radii, no shadows, Gloock over Karla — while the remaining screens and the
-chrome carry the Organic palette as specified.
+The *2a Basket* skin throughout: forest green on a `#efe9d9` ground, flat fills, no shadows,
+Gloock over Karla. A permanent sidebar rather than a drawer, because this is a desktop app. The
+layout came from the `desktop-version` branch; this is that design carried into the real app, with
+pantry-only reels and Supabase behind it.
 
 Design rules that are load-bearing, not decoration:
 
@@ -276,8 +290,8 @@ Design rules that are load-bearing, not decoration:
 
 No onboarding. Cooking a dish refreshes an item's window rather than decrementing its quantity, so
 the number a row carries is what you put there. An ingredient's category cannot be changed after
-it is created — remove the item and add it again. There are no diet filters: with the catalogue
-gone there is nothing to filter on, and tagging every ingredient with a diet as well as a category
-was more than the screen was worth. Reel rules are not persisted. Sync is last-write-wins with no realtime channel, so two
+it is created — remove the ingredient and add it again. Cooking methods are a fixed list, because
+each one carries the participle its dish name needs; adding your own would mean supplying that too.
+The no-repeat window and the diet chips are not persisted. Sync is last-write-wins with no realtime channel, so two
 devices editing at once will talk over each other. These are the obvious next increments, not
 oversights.
