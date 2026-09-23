@@ -129,7 +129,23 @@ Three notes on the shape:
    npm run db:push                             # applies pending migrations
    ```
 
-   Three things are needed and none of them is `.env.local`: your Supabase account (the
+   Or let CI do it. `.github/workflows/database.yml` runs the same CLI on every push to `main`
+   that touches `supabase/migrations/`, and on demand from the Actions tab. It reads three
+   repository settings (*Settings → Secrets and variables → Actions*):
+
+   | | Kind | From |
+   | --- | --- | --- |
+   | `SUPABASE_ACCESS_TOKEN` | Secret | Account → Access Tokens |
+   | `SUPABASE_DB_PASSWORD` | Secret | Project Settings → Database |
+   | `SUPABASE_PROJECT_REF` | Variable | The subdomain of the project URL |
+
+   The workflow has two jobs. `verify` starts a throwaway local Postgres with Supabase's own
+   auth schema and replays every migration from nothing, so a broken or out-of-order file fails
+   before it can reach the project — it needs no secrets and runs on pull requests too. `push`
+   runs only after `verify` passes, prints `db push --dry-run` first so the log says what was
+   pending, and then applies.
+
+   Doing it by hand needs three things and none of them is `.env.local`: your Supabase account (the
    `login` step, which stores a token under `~/.supabase/`, not in the repo), the **project
    ref** — the subdomain of your project URL — and your **database password**, which `link`
    and `push` prompt for. The password was set when the project was created; if it is lost,
@@ -216,6 +232,8 @@ name was taken, Vercel appends a suffix and the Site URL above would be wrong.
 ## Project structure
 
 ```
+.github/workflows/
+  database.yml          verify migrations, then apply them to the linked project
 supabase/
   config.toml           CLI settings; carries no project identity, no secrets
   migrations/           the schema's history, applied by `supabase db push`
