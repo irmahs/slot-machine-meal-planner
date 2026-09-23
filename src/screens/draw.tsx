@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { Dispatch } from "react";
 
 import { COOK_ICONS, dishIcon } from "../components/glyphs";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icon";
 import type { Ingredient } from "../data/model";
 import { labelOfCategory, methodOf } from "../data/vocab";
 import {

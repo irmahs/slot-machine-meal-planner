@@ -1,6 +1,6 @@
 import type { Dispatch } from "react";
 
-import { Switch } from "../components/Switch";
+import { Switch } from "../components/switch";
 import type { Action, PlannerState } from "../state/planner";
 
 interface Props {

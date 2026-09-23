@@ -75,7 +75,7 @@ Claude Code runs it all as a **PostToolUse hook** (`.claude/settings.json` → `
 
 Anything left over exits with code `2`, which Claude Code hands back to Claude as something to fix before moving on. A clean file exits `0` silently. SQL, YAML and other file types are skipped. Review or disable the hook with `/hooks`.
 
-The first `ultracite fix` over the whole codebase left **280 findings** it can't fix automatically. Most are style rules, such as `func-style` wanting arrow functions, `sort-keys`, and `unicorn/filename-case` wanting kebab-case file names. There are also 83 anti-slop findings, mostly casts with no `SAFETY:` comment. The hook surfaces them file by file, as each file is next edited, rather than all at once.
+The first `ultracite fix` over the whole codebase left **280 findings** it can't fix automatically. The 12 `unicorn/filename-case` ones are fixed — files are kebab-case now (`add-ingredient.tsx`, `use-remote-sync.ts`) — which leaves **268**. Most of those are style rules, such as `func-style` wanting arrow functions and `sort-keys`. There are also 83 anti-slop findings, mostly casts with no `SAFETY:` comment. The hook surfaces them file by file, as each file is next edited, rather than all at once.
 
 ### Layout
 
@@ -218,12 +218,12 @@ src/
   lib/remote.ts         load a snapshot, write only what changed
   lib/guest.ts          the guest tab: one sessionStorage key, lost with the tab
   lib/demo.ts           reads the demo tables into a guest's starting pantry
-  lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
-  components/           Icon, Switch, SignIn, and glyphs.ts — SVG drawings keyed by code
+  lib/use-remote-sync.ts  hydrate on sign-in, mirror the reducer from then on
+  components/           icon, switch, sign-in, and glyphs.ts — SVG drawings keyed by code
   test/vocab.json       the reference rows exactly as the migration seeds them
   test/demo.json        the demo rows, likewise
   features.ts           what is built but switched off
-  screens/              Draw, Pantry, AddIngredient, Cooked, ShoppingList, CookingMethods, ReelRules
+  screens/              draw, pantry, add-ingredient, cooked, shopping-list, cooking-methods, reel-rules
   styles.css            one stylesheet; the palette lives in :root
 ```
 

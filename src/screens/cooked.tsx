@@ -1,5 +1,5 @@
 import { dishIcon } from "../components/glyphs";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icon";
 import { dayLabel } from "../lib/dates";
 import type { PlannerState } from "../state/planner";
 

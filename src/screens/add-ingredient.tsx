@@ -1,8 +1,8 @@
 import type { Dispatch } from "react";
 
 import { categoryIcon } from "../components/glyphs";
-import { Icon } from "../components/Icon";
-import { Switch } from "../components/Switch";
+import { Icon } from "../components/icon";
+import { Switch } from "../components/switch";
 import { kindsFor, labelOfCategory } from "../data/vocab";
 import type { CategoryCode } from "../data/vocab";
 import { addDaysISO, daysUntil, todayISO } from "../lib/dates";

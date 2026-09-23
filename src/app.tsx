@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
-import SignIn from "./components/SignIn";
+import SignIn from "./components/sign-in";
 import type { Ingredient } from "./data/model";
 import { labelOfCategory } from "./data/vocab";
 import {
@@ -15,14 +15,14 @@ import {
 } from "./engine/reel";
 import type { Triple } from "./engine/reel";
 import { FEATURES } from "./features";
-import { useRemoteSync } from "./lib/useRemoteSync";
-import { AddIngredient } from "./screens/AddIngredient";
-import { Cooked } from "./screens/Cooked";
-import { CookingMethods } from "./screens/CookingMethods";
-import { Draw } from "./screens/Draw";
-import { Pantry } from "./screens/Pantry";
-import { ReelRules } from "./screens/ReelRules";
-import { ShoppingList } from "./screens/ShoppingList";
+import { useRemoteSync } from "./lib/use-remote-sync";
+import { AddIngredient } from "./screens/add-ingredient";
+import { Cooked } from "./screens/cooked";
+import { CookingMethods } from "./screens/cooking-methods";
+import { Draw } from "./screens/draw";
+import { Pantry } from "./screens/pantry";
+import { ReelRules } from "./screens/reel-rules";
+import { ShoppingList } from "./screens/shopping-list";
 import {
   activeRules,
   createInitialState,
