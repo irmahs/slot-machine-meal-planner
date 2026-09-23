@@ -129,6 +129,13 @@ Three notes on the shape:
    npm run db:push                             # applies pending migrations
    ```
 
+   Three things are needed and none of them is `.env.local`: your Supabase account (the
+   `login` step, which stores a token under `~/.supabase/`, not in the repo), the **project
+   ref** — the subdomain of your project URL — and your **database password**, which `link`
+   and `push` prompt for. The password was set when the project was created; if it is lost,
+   reset it under *Project Settings → Database → Database password*. The `VITE_*` variables
+   are for the browser app at runtime and are never read by the CLI.
+
    `db push` records each file in the `supabase_migrations` schema, so it never runs one twice.
    Every migration is also written to be idempotent — `if not exists`, `on conflict do update` —
    which matters if you first built the database by pasting SQL into the editor: pushing then
@@ -139,8 +146,9 @@ Three notes on the shape:
    the app runs (`http://localhost:5173` for development) and add every other origin you use to
    **Redirect URLs**, including the deployed one. A link only works for a listed origin.
 4. **Wire the keys** — copy `.env.example` to `.env.local` and fill in the project URL and the
-   **anon public** key from *Project Settings → API*. Never the service-role key: this is a browser
-   app and the anon key is the only one meant to ship in a bundle.
+   **anon public** key from *Project Settings → API*. This is what the running app reads, and it is
+   separate from the migration step above. Never the service-role key: this is a browser app and
+   the anon key is the only one meant to ship in a bundle.
 5. `npm run dev`, enter your email, open the link from the same device.
 
 A new account starts empty — no ingredients, no fridge. Create an ingredient from the Fridge
