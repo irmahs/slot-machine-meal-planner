@@ -4,7 +4,14 @@ import { isConfigured } from '../lib/supabase/client';
 
 type Status = { tone: 'idle' | 'error'; message: string };
 
-export default function SignIn({ onGuest }: { onGuest: () => void }) {
+interface Props {
+  onGuest: () => void;
+  /** The reference tables could not be read, so there is no app to open. */
+  unavailable?: boolean;
+}
+
+export default function SignIn({ onGuest, unavailable = false }: Props) {
+  const connected = isConfigured && !unavailable;
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<Status>({ tone: 'idle', message: '' });
@@ -28,9 +35,11 @@ export default function SignIn({ onGuest }: { onGuest: () => void }) {
     <div className="signin">
       <h1 className="signin-brand">Spin Supper</h1>
       <p className="signin-blurb">
-        {isConfigured
-          ? 'Your fridge, your week and your list live under your email address. Enter it and we’ll send a sign-in link — no password to remember.'
-          : 'Saving your fridge needs a database, and this copy isn’t connected to one yet. You can still have a look around.'}
+        {!isConfigured
+          ? 'This copy isn’t connected to its database. Everything the app says — every reel, kind and cooking method — is read from there, so there is nothing to open without it.'
+          : unavailable
+            ? 'The database didn’t answer, and every word the app uses lives there. Check your connection and reload.'
+            : 'Your pantry and your list live under your email address. Enter it and we’ll send a sign-in link — no password to remember.'}
       </p>
       <form className="signin-form" onSubmit={send}>
         <input
@@ -40,11 +49,11 @@ export default function SignIn({ onGuest }: { onGuest: () => void }) {
           autoComplete="email"
           placeholder="you@example.com"
           aria-label="Email address"
-          disabled={!isConfigured}
+          disabled={!connected}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <button type="submit" className="signin-send" disabled={sending || !isConfigured}>
+        <button type="submit" className="signin-send" disabled={sending || !connected}>
           {sending ? 'Sending…' : 'Send link'}
         </button>
       </form>
@@ -53,11 +62,11 @@ export default function SignIn({ onGuest }: { onGuest: () => void }) {
       </p>
 
       <div className="signin-or">
-        <button type="button" className="signin-guest" onClick={onGuest}>
+        <button type="button" className="signin-guest" onClick={onGuest} disabled={!connected}>
           Have a look around
         </button>
         <p className="signin-guestNote">
-          No account, a basket to play with, and nothing saved — close the tab and it’s gone.
+          No account. Start from an empty pantry, and nothing is kept — close the tab and it’s gone.
         </p>
       </div>
     </div>

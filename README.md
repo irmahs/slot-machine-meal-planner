@@ -42,23 +42,37 @@ urgent. With weighting on, an item with two days left is worth `6` against a wel
 *kind*. The three kind tables are separate because they are genuinely different shapes: a protein
 kind carries the diet it counts as and whether it is red meat; a vegetable kind carries the word
 its dish name uses; a starch kind carries the shape of the dish and whether it has gluten. That is
-what makes the diet filters real rather than a list of banned names — *No red meat* drops anything
-whose kind says red meat, including one you added yourself.
+what makes the diet filters real rather than a list of banned names. Each diet rule is itself a row
+in `meal_planner_diet_rules` that says what it keeps off in terms of those columns. *No red meat*,
+for example, is `excludes_red_meat = true`. So a rule works on anything you add, and a new rule is a
+new row.
 
-**The dish name.** Composed from the picks and the method, never looked up. The starch's kind
-decides the shape of the name, the vegetable's kind supplies the word describing it, and the
-method supplies the participle in front:
+**Everything the app says comes from the database.** At startup the app reads the eight reference
+tables: categories, the three kind tables, dish styles, units, cooking methods and diet rules. It
+holds no vocabulary of its own. Rewording a method, a kind or a whole dish name is an edit in the
+Supabase dashboard followed by a reload, with no deploy. If those tables can't be read, the app says
+so rather than opening with nothing to call anything.
+
+**How an ingredient can be cooked.** When you add an ingredient you tick the methods it can be
+cooked with. Each draw then picks one of those ticks for each pick, leaving out anything switched
+off on the Cooking methods screen. An ingredient with nothing ticked gets no method. Holding a
+column keeps its method as well as its ingredient.
+
+**The dish name.** The starch's kind points at a row in `meal_planner_dish_styles`, and that row's
+`name_template` is the whole sentence. The app only fills in the placeholders:
 
 ```
-Air-fried   Chicken      Rice        Bowl    with charred   broccoli
-└ method    └ protein    └ starch    └ from  └ vegetable    └ vegetable
-  phrase      short name   short name  starch   kind's word
-                                       kind
+{method}    {protein} {starch} Bowl with {vegetable_method} {vegetable}
+Air-fried   Chicken   Rice     Bowl with roasted            broccoli
+└ protein's └ short   └ short             └ vegetable's      └ short name,
+  ticked      name      name                ticked method,     lower case
+  method                                    else its kind's word
 ```
 
-`phrase` is stored on the method rather than derived, because no rule turns *Air-fry* into
-*Air-fried* and *Steam* into *Steamed* and *Slow-cook* into *Slow-cooked*. Switch every method off
-and the name simply loses its front: *Chicken Rice Bowl with charred broccoli*.
+`{starch_method}` is available too. The roasting-tray template uses it: *Baked Chicken & roasted
+Sweet Potato Tray…*. A placeholder with nothing to fill it disappears with its spare space. `phrase`
+is stored on each method because no rule turns *Air-fry* into *Air-fried* and *Slow-cook* into
+*Slow-cooked*.
 
 
 ## Stack
@@ -89,9 +103,11 @@ and it collapses to one column when the window is too narrow to hold both.
 ### Signing in, or not
 
 Signing in with a magic link puts everything in Supabase under your account. **Have a look around**
-opens a guest tab instead: a sample basket, every screen working, and the whole session held in
-`sessionStorage` — it survives a reload and is gone the moment the tab closes. Nothing a guest does
-reaches Supabase, which also means the app is usable with no credentials configured at all.
+opens a guest tab instead. It starts with an empty pantry, since there are no ingredients in the
+source to start it with, and holds the whole session in `sessionStorage`: it survives a reload and
+is gone when the tab closes. A guest's pantry never reaches Supabase. The vocabulary still comes
+from Supabase, so guest mode needs the database connected too. That's why the reference tables are
+readable without signing in.
 
 ## Storage (Supabase)
 
@@ -99,8 +115,9 @@ Every screen but Draw reads its rows from Supabase, so this is setup, not an ext
 
 ### The data
 
-Every table carries the `user_id` of the account that owns the row, and its RLS policy compares
-that to `auth.uid()`. You sign in with an email; Supabase maps the address to a stable user id, so
+The eight reference tables are readable by anyone and writable by no one. Every other table
+carries the `user_id` of the account that owns the row, and its RLS policy compares that to
+`auth.uid()`. You sign in with an email; Supabase maps the address to a stable user id, so
 the data follows the account even if the address changes.
 
 | Table | Holds |
@@ -108,10 +125,13 @@ the data follows the account even if the address changes.
 | `meal_planner_categories` | The three reels — protein, vegetables, starch. Shared, not per user. |
 | `meal_planner_protein_kinds` | Red meat, white meat, game, poultry, fish, seafood, eggs & dairy, plant-based — each with the `diet` it counts as and whether it is `is_red_meat`. |
 | `meal_planner_vegetable_kinds` | Leafy, brassica, root, fruiting, pods, allium, mushroom — each with the `cooking_word` its dish name uses. |
-| `meal_planner_starch_kinds` | Grains, noodles, bread, wraps, potatoes, whole grains — each with a `dish_style` and a gluten default. |
-| `meal_planner_units` | Twelve units, from `g` to `serving` to `pot`. |
+| `meal_planner_dish_styles` | Bowl, noodles, salad, tacos, skillet, roasting tray — each with a `label` and the `name_template` a dish name is filled from. |
+| `meal_planner_starch_kinds` | Grains, noodles, bread, wraps, potatoes, whole grains — each pointing at a dish style, with a gluten default. |
+| `meal_planner_units` | Twelve units, from `g` to `serving` to `pot`. `is_count` makes one read as `×8`; `is_default` is the one a new item starts on. |
 | `meal_planner_cooking_methods` | Ten methods, each with the `phrase` a dish name uses. |
+| `meal_planner_diet_rules` | The Reel rules chips, each described by what it excludes: `excludes_diets`, `excludes_red_meat`, `requires_gluten_free`. |
 | `meal_planner_ingredients` | Your ingredient list: `name`, `short_name`, `id_category`, one of three kind columns, and `gluten_free` for starches. |
+| `meal_planner_ingredient_methods` | The methods ticked for each ingredient. Its insert policy checks that the ingredient is yours as well as the row. |
 | `meal_planner_pantry` | What is stocked: quantity, unit and `date_expiration`. The reels are built from this table alone. |
 | `meal_planner_method_settings` | A row only for a method you switched **off**, so a new account has all ten. |
 | `meal_planner_shopping_list` | What to buy, why, and whether it has been bought. |
@@ -128,8 +148,8 @@ Five notes on the shape:
 - **Three kind tables, not one.** They carry different columns, which is the argument for keeping
   them apart. An ingredient has three nullable kind columns and a check constraint that exactly the
   one matching its category is set, so a starch can never carry a protein's kind.
-- **A quantity is a number and a unit**: `600` + `g`, `1` + `bag`, `2` + `piece`. A count in
-  `piece` renders as `×2`, anything else as `600 g`.
+- **A quantity is a number and a unit**: `600` + `g`, `1` + `bag`, `2` + `piece`. A unit marked
+  `is_count` renders as `×2`, anything else as `600 g`.
 - **Reel rules are not stored.** Weighting is computed from `date_expiration` at draw time, so
   there is no rules table; the diet chips, the no-repeat window and the weighting switch live in
   memory and reset on reload. Cooking methods *are* stored, because switching one off is a
@@ -254,16 +274,19 @@ name was taken, Vercel appends a suffix and the Site URL above would be wrong.
 supabase/
   config.toml           CLI settings; carries no project identity, no secrets
   migrations/           the schema's history, applied by `supabase db push`
+scripts/
+  vocab-fixture.sh      regenerates src/test/vocab.json from the migration
 src/
   data/model.ts         the app's types — no ingredient data anywhere
-  data/reference.ts     the fixed vocabularies, mirroring the reference tables
+  data/vocab.ts         reads the eight reference tables; holds no words of its own
   engine/reel.ts        the machine: reels from the pantry, weighting, spin maths, dish naming
   state/planner.ts      all app state and every action over it
   lib/supabase/         client.ts (browser client), auth.ts (magic link, session, sign out)
   lib/remote.ts         load a snapshot, write only what changed
   lib/guest.ts          the guest tab: one sessionStorage key, lost with the tab
   lib/useRemoteSync.ts  hydrate on sign-in, mirror the reducer from then on
-  components/           Icon, Switch, SignIn
+  components/           Icon, Switch, SignIn, and glyphs.ts — SVG drawings keyed by code
+  test/vocab.json       the reference rows exactly as the migration seeds them
   features.ts           what is built but switched off
   screens/              Draw, Pantry, AddIngredient, Cooked, ShoppingList, CookingMethods, ReelRules
   styles.css            one stylesheet; the palette lives in :root
@@ -292,8 +315,16 @@ Design rules that are load-bearing, not decoration:
 
 No onboarding. Cooking a dish refreshes an item's window rather than decrementing its quantity, so
 the number a row carries is what you put there. An ingredient's category cannot be changed after
-it is created — remove the ingredient and add it again. Cooking methods are a fixed list, because
-each one carries the participle its dish name needs; adding your own would mean supplying that too.
-The no-repeat window and the diet chips are not persisted. Sync is last-write-wins with no realtime channel, so two
+it is created — remove the ingredient and add it again. There is no screen for adding a cooking method.
+A method is a row in `meal_planner_cooking_methods` with its `phrase`, so a new one is an insert in
+the dashboard, and it shows up on Add ingredient after a reload.
+The no-repeat window and the diet chips are not persisted.
+
+Three things stay in code on purpose, because they are presentation rather than vocabulary. The
+first is the SVG icon drawings, keyed by the database's codes, with a plain plate for any dish style
+the app hasn't drawn. The second is the date and no-repeat presets on two forms. The third is form
+copy such as "Use by" and "Gluten-free", which labels columns rather than naming anything. The three
+category codes are fixed as well, because the schema fixes them: an ingredient has one kind column
+per category, so a fourth category is a migration, not a row. Sync is last-write-wins with no realtime channel, so two
 devices editing at once will talk over each other. These are the obvious next increments, not
 oversights.

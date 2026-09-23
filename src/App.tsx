@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import SignIn from './components/SignIn';
-import { CATEGORIES, labelOfCategory } from './data/reference';
+import { labelOfCategory } from './data/vocab';
 import { FEATURES } from './features';
-import { SETTLE_MS, canSpin, daysLeft, planSpin, reelsFrom } from './engine/reel';
+import type { Ingredient } from './data/model';
+import {
+  SETTLE_MS,
+  canSpin,
+  chooseMethods,
+  daysLeft,
+  emptyReels,
+  ingredientOf,
+  planSpin,
+  reelsFrom,
+  type Triple,
+} from './engine/reel';
 import { useRemoteSync } from './lib/useRemoteSync';
 import { AddIngredient } from './screens/AddIngredient';
 import { Cooked } from './screens/Cooked';
@@ -11,7 +22,7 @@ import { Draw } from './screens/Draw';
 import { Pantry } from './screens/Pantry';
 import { ReelRules } from './screens/ReelRules';
 import { ShoppingList } from './screens/ShoppingList';
-import { createInitialState, methodsOn, plannerReducer, type Screen } from './state/planner';
+import { activeRules, createInitialState, methodsOn, plannerReducer, type Screen } from './state/planner';
 
 const TITLES: Record<Screen, string> = {
   spin: 'Tonight',
@@ -33,27 +44,31 @@ export default function App() {
     return () => pending.forEach(clearTimeout);
   }, []);
 
+  const v = state.vocab;
   const reels = useMemo(
-    () => reelsFrom(state.pantry, state.catalogue),
-    [state.pantry, state.catalogue],
+    () => reelsFrom(state.pantry, state.catalogue, v),
+    [state.pantry, state.catalogue, v],
   );
-  const ready = canSpin(reels);
+  const ready = canSpin(reels, v);
 
   const spin = useCallback(() => {
     if (state.spinning || !ready) return;
     const plan = planSpin(state.idx, state.locks, reels, {
       catalogue: state.catalogue,
-      diets: state.diets,
+      rules: activeRules(state),
       weighting: state.weighting,
+      vocab: v,
     });
     dispatch({ type: 'spin/start', plan });
-    // The method is drawn with the dish, from whatever is in rotation.
-    const rotation = methodsOn(state);
-    const method = rotation.length ? rotation[Math.floor(Math.random() * rotation.length)].code : null;
+    // Each pick is cooked one of the ways ticked for it, drawn with the dish.
+    const picks = plan.target.map((t, k) =>
+      reels[k][t] ? ingredientOf(state.catalogue, reels[k][t].name) : undefined,
+    ) as Triple<Ingredient | undefined>;
+    const methods = chooseMethods(picks, state.methodsOff, state.locks, state.methods);
     timers.current.push(
-      window.setTimeout(() => dispatch({ type: 'spin/settle', target: plan.target, method }), SETTLE_MS),
+      window.setTimeout(() => dispatch({ type: 'spin/settle', target: plan.target, methods }), SETTLE_MS),
     );
-  }, [state, reels, ready]);
+  }, [state, reels, ready, v]);
 
   // Space draws, unless focus is in a control that owns the key.
   useEffect(() => {
@@ -69,6 +84,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [state.screen, spin]);
 
+  if (phase === 'broken') return <SignIn onGuest={startGuest} unavailable />;
   if (phase === 'signed-out') return <SignIn onGuest={startGuest} />;
   if (phase === 'booting') return <div className="shell" />;
 
@@ -138,23 +154,13 @@ export default function App() {
             <h1 className="topbar__title">{TITLES[state.screen]}</h1>
           </div>
           {!ready ? (
-            <button
-              type="button"
-              className="soon-pill"
-              onClick={() => dispatch({ type: 'screen/go', screen: 'pantry' })}
-            >
-              {reels.filter((r) => !r.length).length === CATEGORIES.length
+            <button type="button" className="soon-pill" onClick={() => dispatch({ type: 'screen/go', screen: 'pantry' })}>
+              {emptyReels(reels, v).length === v.categories.length
                 ? 'Nothing stocked'
-                : `No ${labelOfCategory(
-                    CATEGORIES[reels.findIndex((r) => !r.length)].code,
-                  ).toLowerCase()}`}
+                : `No ${labelOfCategory(v, emptyReels(reels, v)[0]).toLowerCase()}`}
             </button>
           ) : (
-            <button
-              type="button"
-              className="soon-pill"
-              onClick={() => dispatch({ type: 'screen/go', screen: 'pantry' })}
-            >
+            <button type="button" className="soon-pill" onClick={() => dispatch({ type: 'screen/go', screen: 'pantry' })}>
               {expiring} going off soon
             </button>
           )}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { toVocab, type RawVocab } from '../data/vocab';
 import { FEATURES } from '../features';
+import raw from '../test/vocab.json';
 import { createInitialState, plannerReducer, type PlannerState } from './planner';
 
 /**
@@ -7,12 +9,15 @@ import { createInitialState, plannerReducer, type PlannerState } from './planner
  * dates move, but nothing is recorded. These assertions follow the flag, so
  * they keep meaning something when it is turned on.
  */
+const vocab = toVocab(raw as RawVocab);
+const loaded = plannerReducer(createInitialState(), { type: 'vocab/load', vocab });
+
 const drawn: PlannerState = {
-  ...createInitialState(),
+  ...loaded,
   catalogue: [
-    { name: 'Chicken Thighs', shortName: 'Chicken', category: 'protein', kind: 'poultry', glutenFree: null },
-    { name: 'Broccoli', shortName: null, category: 'vegetable', kind: 'brassica', glutenFree: null },
-    { name: 'Jasmine Rice', shortName: 'Rice', category: 'starch', kind: 'grain', glutenFree: true },
+    { name: 'Chicken Thighs', shortName: 'Chicken', category: 'protein', kind: 'poultry', glutenFree: null, methods: ['air_fry'] },
+    { name: 'Broccoli', shortName: null, category: 'vegetable', kind: 'brassica', glutenFree: null, methods: [] },
+    { name: 'Jasmine Rice', shortName: 'Rice', category: 'starch', kind: 'grain', glutenFree: true, methods: [] },
   ],
   pantry: [
     { name: 'Chicken Thighs', qty: 600, unit: 'g', expiresOn: '2026-09-25' },
@@ -20,7 +25,7 @@ const drawn: PlannerState = {
     { name: 'Jasmine Rice', qty: 1.5, unit: 'kg', expiresOn: '2026-12-22' },
   ],
   picked: ['Chicken Thighs', 'Broccoli', 'Jasmine Rice'],
-  method: 'air_fry',
+  methods: ['air_fry', null, null],
 };
 
 describe('into the pot', () => {
@@ -53,5 +58,33 @@ describe('into the pot', () => {
   it('does nothing without a draw', () => {
     const state = { ...drawn, picked: null };
     expect(plannerReducer(state, { type: 'dish/cook' })).toBe(state);
+  });
+});
+
+describe('the vocabulary sets the form defaults', () => {
+  it('starts each kind on the first row of its table, and the unit on the default one', () => {
+    expect(loaded.draft.proteinKind).toBe(vocab.proteinKinds[0].code);
+    expect(loaded.draft.starchKind).toBe(vocab.starchKinds[0].code);
+    expect(loaded.draft.unit).toBe(vocab.units.find((u) => u.isDefault)?.code);
+  });
+});
+
+describe('ticking methods on a new ingredient', () => {
+  it('stores them in the table order, whatever order they were tapped', () => {
+    let s = { ...loaded, draft: { ...loaded.draft, name: 'Halloumi' } };
+    s = plannerReducer(s, { type: 'draft/toggleMethod', code: 'grill' });
+    s = plannerReducer(s, { type: 'draft/toggleMethod', code: 'pan_fry' });
+    s = plannerReducer(s, { type: 'draft/submit' });
+    expect(s.catalogue.find((i) => i.name === 'Halloumi')?.methods).toEqual(['pan_fry', 'grill']);
+    expect(s.draft.methods).toEqual([]);
+  });
+
+  it('drops a method at settle if the ingredient that landed does not have it', () => {
+    const settled = plannerReducer(
+      { ...drawn, picked: null, spinning: true },
+      { type: 'spin/settle', target: [0, 0, 0], methods: ['bake', 'roast', null] },
+    );
+    // Chicken is ticked for air-fry only; broccoli for nothing.
+    expect(settled.methods).toEqual([null, null, null]);
   });
 });

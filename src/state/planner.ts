@@ -1,26 +1,21 @@
 import type { GroceryItem, Ingredient, PantryItem, PlanEntry } from '../data/model';
 import {
-  DEFAULT_UNIT,
-  METHODS,
-  PROTEIN_KINDS,
-  STARCH_KINDS,
-  VEGETABLE_KINDS,
+  EMPTY_VOCAB,
+  defaultUnit,
+  labelOfCategory,
+  methodOf,
   type CategoryCode,
-  type DietRule,
-  type MethodCode,
-  type UnitCode,
-} from '../data/reference';
-import { addDaysISO, todayISO } from '../lib/dates';
+  type Vocab,
+} from '../data/vocab';
 import { FEATURES } from '../features';
+import { addDaysISO, todayISO } from '../lib/dates';
 import type { Snapshot } from '../lib/remote';
 import {
   dishName,
   ingredientOf,
-  methodOf,
   pickedNames,
   reelsFrom,
   settledIdx,
-  starchKind,
   styleOf,
   type SpinPlan,
   type Triple,
@@ -38,9 +33,11 @@ export interface AddDraft {
   vegetableKind: string;
   starchKind: string;
   glutenFree: boolean;
+  /** The ways it can be cooked, as method codes. */
+  methods: string[];
   days: number;
   qty: string;
-  unit: UnitCode;
+  unit: string;
   /** Straight into the pantry, or onto the shopping list. */
   have: boolean;
 }
@@ -49,25 +46,29 @@ export interface AddDraft {
 export interface StockDraft {
   name: string;
   qty: string;
-  unit: UnitCode;
+  unit: string;
   days: number;
 }
 
 export interface PlannerState {
+  /** Every word the app uses, from the reference tables. Empty until loaded. */
+  vocab: Vocab;
   screen: Screen;
   catalogue: Ingredient[];
   pantry: PantryItem[];
   plan: PlanEntry[];
   grocery: GroceryItem[];
-  /** Methods switched off. Absence means on, so a new account has all of them. */
-  methodsOff: MethodCode[];
+  /** Method codes switched off. Absence means on, so a new account has all of them. */
+  methodsOff: string[];
   idx: Triple<number>;
   locks: Triple<boolean>;
   dur: Triple<string>;
   spinning: boolean;
   picked: Triple<string | null> | null;
-  method: MethodCode | null;
-  diets: DietRule[];
+  /** The method each pick is cooked with, one per reel; null where none was ticked. */
+  methods: Triple<string | null> | null;
+  /** Diet rule codes that are on. */
+  diets: string[];
   repeatDays: number;
   weighting: boolean;
   pantryFilter: CategoryCode | 'all';
@@ -80,20 +81,22 @@ const DRAFT0: AddDraft = {
   name: '',
   shortName: '',
   category: 'protein',
-  proteinKind: 'poultry',
-  vegetableKind: 'leafy',
-  starchKind: 'grain',
-  glutenFree: true,
+  proteinKind: '',
+  vegetableKind: '',
+  starchKind: '',
+  glutenFree: false,
+  methods: [],
   days: 7,
   qty: '',
-  unit: DEFAULT_UNIT,
+  unit: '',
   have: true,
 };
 
-const STOCK0: StockDraft = { name: '', qty: '1', unit: DEFAULT_UNIT, days: 7 };
+const STOCK0: StockDraft = { name: '', qty: '1', unit: '', days: 7 };
 
 export function createInitialState(): PlannerState {
   return {
+    vocab: EMPTY_VOCAB,
     screen: 'spin',
     catalogue: [],
     pantry: [],
@@ -105,7 +108,7 @@ export function createInitialState(): PlannerState {
     dur: ['0s', '0s', '0s'],
     spinning: false,
     picked: null,
-    method: null,
+    methods: null,
     diets: [],
     repeatDays: 7,
     weighting: true,
@@ -130,14 +133,15 @@ export const kindOfDraft = (d: AddDraft): string =>
   d.category === 'protein' ? d.proteinKind : d.category === 'vegetable' ? d.vegetableKind : d.starchKind;
 
 export type Action =
+  | { type: 'vocab/load'; vocab: Vocab }
   | { type: 'state/hydrate'; snapshot: Snapshot }
   | { type: 'screen/go'; screen: Screen }
   | { type: 'reel/toggleLock'; reel: number }
   | { type: 'spin/start'; plan: SpinPlan }
-  | { type: 'spin/settle'; target: Triple<number>; method: MethodCode | null }
+  | { type: 'spin/settle'; target: Triple<number>; methods: Triple<string | null> }
   | { type: 'dish/cook' }
-  | { type: 'dish/clear' }
   | { type: 'draft/patch'; patch: Partial<AddDraft> }
+  | { type: 'draft/toggleMethod'; code: string }
   | { type: 'draft/submit' }
   | { type: 'stock/patch'; patch: Partial<StockDraft> }
   | { type: 'stock/submit' }
@@ -147,8 +151,8 @@ export type Action =
   | { type: 'grocery/toggle'; name: string }
   | { type: 'grocery/remove'; name: string }
   | { type: 'grocery/stock'; name: string }
-  | { type: 'method/toggle'; code: MethodCode }
-  | { type: 'rules/toggleDiet'; diet: DietRule }
+  | { type: 'method/toggle'; code: string }
+  | { type: 'rules/toggleDiet'; code: string }
   | { type: 'rules/repeatDays'; days: number }
   | { type: 'rules/toggleWeighting' }
   | { type: 'flash/clear' };
@@ -172,6 +176,27 @@ const COOKED_WINDOW = 14;
 
 export function plannerReducer(state: PlannerState, action: Action): PlannerState {
   switch (action.type) {
+    case 'vocab/load': {
+      // Defaults for the forms come from the vocabulary too: the first kind of
+      // each category, and whichever unit the units table marks as the default.
+      const v = action.vocab;
+      const unit = defaultUnit(v);
+      const starch = v.starchKinds[0];
+      return {
+        ...state,
+        vocab: v,
+        draft: {
+          ...state.draft,
+          proteinKind: state.draft.proteinKind || (v.proteinKinds[0]?.code ?? ''),
+          vegetableKind: state.draft.vegetableKind || (v.vegetableKinds[0]?.code ?? ''),
+          starchKind: state.draft.starchKind || (starch?.code ?? ''),
+          glutenFree: starch?.glutenFree ?? false,
+          unit: state.draft.unit || unit,
+        },
+        stock: { ...state.stock, unit: state.stock.unit || unit },
+      };
+    }
+
     case 'state/hydrate':
       return {
         ...state,
@@ -198,28 +223,31 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         dur: action.plan.dur,
         spinning: true,
         picked: null,
-        method: null,
+        flash: '',
       };
 
     case 'spin/settle': {
       // The pantry can change while the reels turn, so read the targets back
       // against the reels as they are now rather than as they were planned.
-      const reels = reelsFrom(state.pantry, state.catalogue);
+      const reels = reelsFrom(state.pantry, state.catalogue, state.vocab);
       const target = action.target.map((t, k) =>
         reels[k].length ? t % reels[k].length : 0,
       ) as Triple<number>;
+      const picked = pickedNames(target, reels);
+      // A method only survives if the ingredient that landed still has it ticked.
+      const methods = action.methods.map((code, k) => {
+        const ingredient = picked[k] ? ingredientOf(state.catalogue, picked[k]!) : undefined;
+        return code && ingredient?.methods.includes(code) ? code : null;
+      }) as Triple<string | null>;
       return {
         ...state,
         spinning: false,
-        picked: pickedNames(target, reels),
-        method: action.method,
+        picked,
+        methods,
         idx: settledIdx(target, reels),
         dur: ['0s', '0s', '0s'],
       };
     }
-
-    case 'dish/clear':
-      return { ...state, picked: null, method: null };
 
     case 'dish/cook': {
       if (!state.picked) return state;
@@ -229,7 +257,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       const picks = state.picked.map((n) => (n ? ingredientOf(state.catalogue, n) : undefined)) as Triple<
         Ingredient | undefined
       >;
-      const method = methodOf(state.method);
+      const methods = state.methods ?? [null, null, null];
       // Everything drawn was in the pantry, so cooking pushes its window out.
       const pantry = state.pantry.map((item) =>
         names.includes(item.name) ? { ...item, expiresOn: laterOf(item.expiresOn, COOKED_WINDOW) } : item,
@@ -241,25 +269,27 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         return {
           ...state,
           picked: null,
-          method: null,
+          methods: null,
           pantry,
           flash: `${names.join(', ')} — good for another two weeks.`,
         };
       }
 
+      const method = methodOf(state.vocab, methods[0]);
       return {
         ...state,
         screen: 'plan',
         picked: null,
+        methods: null,
         pantry,
         plan: [
           {
             id: crypto.randomUUID(),
             cookedOn: todayISO(),
-            dish: dishName(picks, state.method),
+            dish: dishName(picks, methods, state.vocab),
             note: method ? `Just drawn · ${method.label.toLowerCase()}` : 'Just drawn',
-            style: styleOf(picks[2]),
-            method: state.method,
+            style: styleOf(picks[2], state.vocab)?.code ?? '',
+            method: methods[0],
             ingredients: names,
           },
           ...state.plan,
@@ -272,9 +302,23 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       // Choosing a starch kind carries its gluten default across, unless the
       // same patch said otherwise.
       if (action.patch.starchKind !== undefined && action.patch.glutenFree === undefined) {
-        draft.glutenFree = starchKind(action.patch.starchKind)?.glutenFree ?? false;
+        draft.glutenFree =
+          state.vocab.starchKinds.find((k) => k.code === action.patch.starchKind)?.glutenFree ?? false;
       }
       return { ...state, draft, flash: '' };
+    }
+
+    case 'draft/toggleMethod': {
+      const on = state.draft.methods.includes(action.code);
+      return {
+        ...state,
+        draft: {
+          ...state.draft,
+          methods: on
+            ? state.draft.methods.filter((c) => c !== action.code)
+            : [...state.draft.methods, action.code],
+        },
+      };
     }
 
     case 'draft/submit': {
@@ -282,14 +326,17 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       const name = d.name.trim();
       if (!name) return state;
 
+      // Keep the table's order rather than the order the chips were tapped in.
+      const methods = state.vocab.methods.map((m) => m.code).filter((c) => d.methods.includes(c));
       const ingredient: Ingredient = {
         name,
         shortName: d.shortName.trim() || null,
         category: d.category,
         kind: kindOfDraft(d),
         glutenFree: d.category === 'starch' ? d.glutenFree : null,
+        methods,
       };
-      const label = d.category === 'vegetable' ? 'vegetables' : d.category;
+      const reel = labelOfCategory(state.vocab, d.category).toLowerCase();
 
       return {
         ...state,
@@ -303,17 +350,11 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
         grocery: d.have
           ? state.grocery.filter((g) => !same(g.name, name))
           : [
-              {
-                name,
-                qty: parseQuantity(d.qty),
-                unit: d.unit,
-                note: `New on the ${label} reel`,
-                acquired: false,
-              },
+              { name, qty: parseQuantity(d.qty), unit: d.unit, note: `New on the ${reel} reel`, acquired: false },
               ...state.grocery.filter((g) => !same(g.name, name)),
             ],
-        draft: { ...d, name: '', shortName: '', qty: '', days: 7 },
-        flash: `${name} is on the ${label} reel${d.have ? ' and in the pantry.' : ', and on the shopping list.'}`,
+        draft: { ...d, name: '', shortName: '', qty: '', days: 7, methods: [] },
+        flash: `${name} is on the ${reel} reel${d.have ? ' and in the pantry.' : ', and on the shopping list.'}`,
       };
     }
 
@@ -329,13 +370,13 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           {
             name,
             qty: parseQuantity(state.stock.qty),
-            unit: state.stock.unit,
+            unit: state.stock.unit || defaultUnit(state.vocab),
             expiresOn: addDaysISO(state.stock.days),
           },
           ...state.pantry.filter((p) => p.name !== name),
         ],
         grocery: state.grocery.filter((g) => g.name !== name),
-        stock: STOCK0,
+        stock: { ...STOCK0, unit: defaultUnit(state.vocab) },
       };
     }
 
@@ -354,7 +395,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
       return {
         ...state,
         grocery: [
-          { name, qty: 1, unit: DEFAULT_UNIT, note: 'Added by you', acquired: false },
+          { name, qty: 1, unit: defaultUnit(state.vocab), note: 'Added by you', acquired: false },
           ...state.grocery,
         ],
       };
@@ -363,9 +404,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'grocery/toggle':
       return {
         ...state,
-        grocery: state.grocery.map((g) =>
-          g.name === action.name ? { ...g, acquired: !g.acquired } : g,
-        ),
+        grocery: state.grocery.map((g) => (g.name === action.name ? { ...g, acquired: !g.acquired } : g)),
       };
 
     case 'grocery/remove':
@@ -379,7 +418,7 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
           {
             name: action.name,
             qty: bought?.qty ?? 1,
-            unit: bought?.unit ?? DEFAULT_UNIT,
+            unit: bought?.unit ?? defaultUnit(state.vocab),
             expiresOn: addDaysISO(STOCKED_WINDOW),
           },
           ...state.pantry.filter((p) => p.name !== action.name),
@@ -399,9 +438,9 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
     case 'rules/toggleDiet':
       return {
         ...state,
-        diets: state.diets.includes(action.diet)
-          ? state.diets.filter((d) => d !== action.diet)
-          : [...state.diets, action.diet],
+        diets: state.diets.includes(action.code)
+          ? state.diets.filter((d) => d !== action.code)
+          : [...state.diets, action.code],
       };
 
     case 'rules/repeatDays':
@@ -415,9 +454,10 @@ export function plannerReducer(state: PlannerState, action: Action): PlannerStat
   }
 }
 
-/** The methods a draw may choose from. */
-export const methodsOn = (state: PlannerState) =>
-  METHODS.filter((m) => !state.methodsOff.includes(m.code));
+/** The diet rules switched on, as rows. */
+export const activeRules = (state: PlannerState) =>
+  state.vocab.dietRules.filter((r) => state.diets.includes(r.code));
 
-export const kindsFor = (category: CategoryCode) =>
-  category === 'protein' ? PROTEIN_KINDS : category === 'vegetable' ? VEGETABLE_KINDS : STARCH_KINDS;
+/** Methods switched on in the Cooking methods screen. */
+export const methodsOn = (state: PlannerState) =>
+  state.vocab.methods.filter((m) => !state.methodsOff.includes(m.code));

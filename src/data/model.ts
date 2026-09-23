@@ -1,9 +1,8 @@
-import type { CategoryCode, DishStyle, MethodCode, UnitCode } from './reference';
+import type { CategoryCode } from './vocab';
 
 /**
- * The app's types. There is no ingredient list in the source: an ingredient is a
- * row you create on the Add ingredient screen, described with the fixed
- * vocabularies in reference.ts. Everything else points at one by name.
+ * The app's own types. Codes here (a kind, a unit, a method) are the `code`
+ * column of a reference table; the words they stand for live in the database.
  */
 
 export interface Ingredient {
@@ -15,13 +14,15 @@ export interface Ingredient {
   kind: string;
   /** Starches only; the kind supplies the default and this is the answer. */
   glutenFree: boolean | null;
+  /** The cooking methods ticked for it. A dish is only named after one of these. */
+  methods: string[];
 }
 
 /** What is actually in the pantry. The reels are built from these alone. */
 export interface PantryItem {
   name: string;
   qty: number;
-  unit: UnitCode;
+  unit: string;
   /** The last day it is good for, as an ISO date. Days left are derived from it. */
   expiresOn: string;
 }
@@ -31,16 +32,15 @@ export interface PlanEntry {
   cookedOn: string;
   dish: string;
   note: string;
-  /** Kept as drawn, so the history keeps its icon even if the ingredient changes. */
-  style: DishStyle;
-  method: MethodCode | null;
+  style: string;
+  method: string | null;
   ingredients: string[];
 }
 
 export interface GroceryItem {
   name: string;
   qty: number;
-  unit: UnitCode;
+  unit: string;
   note: string;
   acquired: boolean;
 }

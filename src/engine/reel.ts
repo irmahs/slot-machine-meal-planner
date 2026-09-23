@@ -1,15 +1,5 @@
 import type { Ingredient, PantryItem } from '../data/model';
-import {
-  CATEGORY_CODES,
-  METHODS,
-  PROTEIN_KINDS,
-  STARCH_KINDS,
-  VEGETABLE_KINDS,
-  type CategoryCode,
-  type DietRule,
-  type DishStyle,
-  type MethodCode,
-} from '../data/reference';
+import { categoryCodes, type CategoryCode, type DietRule, type Vocab } from '../data/vocab';
 import { daysUntil } from '../lib/dates';
 
 /** Height of one reel cell in px. Drives all of the spin maths. */
@@ -18,62 +8,58 @@ export const STRIP_REPEATS = 10;
 export const SETTLE_MS = 2500;
 
 export type Triple<T> = [T, T, T];
-/** One reel per category, in category order: Protein, Vegetables, Starch. */
+/** One reel per category, in the order the categories table gives. */
 export type Reels = Triple<PantryItem[]>;
 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 
-/** Look an ingredient up by the name every other table stores. */
 export function ingredientOf(catalogue: Ingredient[], name: string): Ingredient | undefined {
   return catalogue.find((i) => i.name === name);
 }
 
-export const proteinKind = (code: string) => PROTEIN_KINDS.find((k) => k.code === code);
-export const vegetableKind = (code: string) => VEGETABLE_KINDS.find((k) => k.code === code);
-export const starchKind = (code: string) => STARCH_KINDS.find((k) => k.code === code);
-export const methodOf = (code: MethodCode | null) =>
-  code ? METHODS.find((m) => m.code === code) : undefined;
-
 /**
  * The reels are the pantry, sliced by the category of each item's ingredient.
- * Nothing you have not stocked can spin, so an empty pantry means empty reels.
- * Soonest to go off sits at the top of each column.
+ * Nothing you have not stocked can spin. Soonest to go off sits at the top.
  */
-export function reelsFrom(pantry: PantryItem[], catalogue: Ingredient[]): Reels {
-  return CATEGORY_CODES.map((code) =>
+export function reelsFrom(pantry: PantryItem[], catalogue: Ingredient[], vocab: Vocab): Reels {
+  return categoryCodes(vocab).map((code) =>
     pantry
       .filter((item) => ingredientOf(catalogue, item.name)?.category === code)
       .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn)),
   ) as Reels;
 }
 
-export function emptyReels(reels: Reels): CategoryCode[] {
-  return CATEGORY_CODES.filter((_, k) => reels[k].length === 0);
+export function emptyReels(reels: Reels, vocab: Vocab): CategoryCode[] {
+  return categoryCodes(vocab).filter((_, k) => (reels[k] ?? []).length === 0);
 }
 
-export const canSpin = (reels: Reels) => emptyReels(reels).length === 0;
+export const canSpin = (reels: Reels, vocab: Vocab) =>
+  vocab.categories.length > 0 && emptyReels(reels, vocab).length === 0;
 
 export const daysLeft = (item: PantryItem) => daysUntil(item.expiresOn);
 
 /** The payline is the middle of three visible cells, i.e. strip index idx + 1. */
 export const paylineOf = (idx: number, len: number) => (len === 0 ? 0 : mod(idx + 1, len));
 
-/** Diet rules read the ingredient's kind, which is the only thing that knows. */
-export function allowed(ingredient: Ingredient | undefined, diets: DietRule[]): boolean {
-  if (!ingredient) return true;
+/**
+ * Whether an ingredient survives the active diet rules. Each rule is a row
+ * describing what it excludes in terms of kind columns, so this applies any rule
+ * the table holds without knowing one by name.
+ */
+export function allowed(ingredient: Ingredient | undefined, rules: DietRule[], vocab: Vocab): boolean {
+  if (!ingredient || !rules.length) return true;
 
   if (ingredient.category === 'protein') {
-    const kind = proteinKind(ingredient.kind);
-    if (!kind) return true;
-    if (diets.includes('Vegetarian') && kind.diet !== 'veg') return false;
-    if (diets.includes('Pescatarian') && kind.diet === 'meat') return false;
-    if (diets.includes('No red meat') && kind.redMeat) return false;
+    const kind = vocab.proteinKinds.find((k) => k.code === ingredient.kind);
+    if (kind) {
+      if (rules.some((r) => r.excludesDiets.includes(kind.diet))) return false;
+      if (kind.redMeat && rules.some((r) => r.excludesRedMeat)) return false;
+    }
   }
 
-  if (ingredient.category === 'starch' && diets.includes('Gluten-free')) {
-    const kind = starchKind(ingredient.kind);
-    const gf = ingredient.glutenFree ?? kind?.glutenFree ?? false;
-    if (!gf) return false;
+  if (ingredient.category === 'starch' && rules.some((r) => r.requiresGlutenFree)) {
+    const kind = vocab.starchKinds.find((k) => k.code === ingredient.kind);
+    if (!(ingredient.glutenFree ?? kind?.glutenFree ?? false)) return false;
   }
 
   return true;
@@ -91,22 +77,19 @@ export function weightOf(item: PantryItem, weighting: boolean): number {
 
 export interface PickContext {
   catalogue: Ingredient[];
-  diets: DietRule[];
+  rules: DietRule[];
   weighting: boolean;
+  vocab: Vocab;
 }
 
 /**
  * Weighted pick within one reel, after diet filtering. A filter that empties the
  * reel falls back to the unfiltered list rather than failing to draw.
  */
-export function pickIndex(
-  list: PantryItem[],
-  ctx: PickContext,
-  random: () => number = Math.random,
-): number {
+export function pickIndex(list: PantryItem[], ctx: PickContext, random: () => number = Math.random): number {
   if (!list.length) return -1;
 
-  const pool = list.filter((item) => allowed(ingredientOf(ctx.catalogue, item.name), ctx.diets));
+  const pool = list.filter((item) => allowed(ingredientOf(ctx.catalogue, item.name), ctx.rules, ctx.vocab));
   const source = pool.length ? pool : list;
   let r = random() * source.reduce((sum, item) => sum + weightOf(item, ctx.weighting), 0);
   for (const item of source) {
@@ -151,54 +134,89 @@ export function planSpin(
   return out;
 }
 
-/** Where each strip rests once the spin snaps: the target back on the payline. */
 export const settledIdx = (target: Triple<number>, reels: Reels): Triple<number> =>
   target.map((c, k) => c + Math.max(reels[k].length, 1) - 1) as Triple<number>;
 
 export const pickedNames = (target: Triple<number>, reels: Reels): Triple<string | null> =>
   target.map((c, k) => reels[k][c]?.name ?? null) as Triple<string | null>;
 
-export function styleOf(starch: Ingredient | undefined): DishStyle {
-  return starchKind(starch?.kind ?? '')?.style ?? 'bowl';
+/** The methods an ingredient may be cooked with right now: ticked, and in rotation. */
+export function methodsFor(ingredient: Ingredient | undefined, methodsOff: string[]): string[] {
+  return (ingredient?.methods ?? []).filter((code) => !methodsOff.includes(code));
 }
 
 /**
- * Compose a dish name from the picks and the method — there is no recipe corpus
- * and no list of dish names. The starch's kind decides the shape of the name,
- * the vegetable's kind supplies the word describing it, and the method supplies
- * the participle in front: "Air-fried Chicken Rice Bowl with charred broccoli".
+ * One method per pick, from what was ticked for that ingredient and is switched
+ * on. A held reel keeps the method it already had, so holding a column holds
+ * everything about it. An ingredient with nothing ticked gets no method.
  */
+export function chooseMethods(
+  picks: Triple<Ingredient | undefined>,
+  methodsOff: string[],
+  held: Triple<boolean>,
+  previous: Triple<string | null> | null,
+  random: () => number = Math.random,
+): Triple<string | null> {
+  return picks.map((ingredient, k) => {
+    const options = methodsFor(ingredient, methodsOff);
+    const kept = previous?.[k] ?? null;
+    if (held[k] && kept && options.includes(kept)) return kept;
+    return options.length ? options[Math.floor(random() * options.length)] : null;
+  }) as Triple<string | null>;
+}
+
+export function styleOf(starch: Ingredient | undefined, vocab: Vocab) {
+  const kind = vocab.starchKinds.find((k) => k.code === starch?.kind);
+  return vocab.dishStyles.find((s) => s.id === kind?.styleId);
+}
+
+/**
+ * Fills a template from meal_planner_dish_styles. A placeholder with nothing to
+ * fill it disappears with its spare space, and the first letter is capitalised.
+ * This is the whole of the app's part in naming a dish: the wording is the row.
+ */
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  const filled = template
+    .replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,&])\s*$/, '')
+    .trim();
+  return filled.charAt(0).toUpperCase() + filled.slice(1);
+}
+
 export function dishName(
   picks: Triple<Ingredient | undefined>,
-  method: MethodCode | null,
+  methods: Triple<string | null>,
+  vocab: Vocab,
 ): string {
   const [protein, vegetable, starch] = picks;
-  const short = (i: Ingredient | undefined) => (i ? i.shortName || i.name : '');
-
   const present = picks.filter((i): i is Ingredient => i !== undefined);
-  if (!present.length) return 'Nothing drawn yet';
+  if (!present.length) return '';
 
-  const P = short(protein);
-  const S = short(starch);
-  const base: Record<DishStyle, string> = {
-    bowl: `${P} ${S} Bowl`,
-    noodles: `${P} ${S} Stir-Fry`,
-    salad: `${P} & ${S} Salad`,
-    tacos: `${P} Tacos`,
-    skillet: `${P} ${S} Skillet`,
-    roast: `${P} & ${S} Tray`,
-  };
+  const style = styleOf(starch, vocab);
+  if (!protein || !vegetable || !starch || !style) return present.map((i) => i.name).join(' & ');
 
-  // A reel that drew nothing leaves a gap, so fall back to naming what there is.
-  if (!protein || !starch) return present.map((i) => i.name).join(' & ');
+  const phrase = (code: string | null) => vocab.methods.find((m) => m.code === code)?.phrase ?? '';
+  const short = (i: Ingredient) => i.shortName || i.name;
+  const vegKindWord = vocab.vegetableKinds.find((k) => k.code === vegetable.kind)?.word ?? '';
 
-  const phrase = methodOf(method)?.phrase;
-  const head = phrase ? `${phrase} ${base[styleOf(starch)]}` : base[styleOf(starch)];
-  if (!vegetable) return head;
-
-  const word = vegetableKind(vegetable.kind)?.word ?? 'fresh';
-  return `${head} with ${word} ${(vegetable.shortName || vegetable.name).toLowerCase()}`;
+  return fillTemplate(style.template, {
+    method: phrase(methods[0]),
+    protein: short(protein),
+    starch: short(starch),
+    starch_method: phrase(methods[2]).toLowerCase(),
+    vegetable: short(vegetable).toLowerCase(),
+    vegetable_method: (phrase(methods[1]) || vegKindWord).toLowerCase(),
+  });
 }
 
 export const daysNote = (days: number) =>
-  days > 30 ? 'keeps for months' : days < 0 ? 'past its date' : days === 0 ? 'use today' : days === 1 ? 'use tomorrow' : `use within ${days} days`;
+  days > 30
+    ? 'keeps for months'
+    : days < 0
+      ? 'past its date'
+      : days === 0
+        ? 'use today'
+        : days === 1
+          ? 'use tomorrow'
+          : `use within ${days} days`;

@@ -1,52 +1,18 @@
 import { EMPTY, type Snapshot } from './remote';
 
 /**
- * Guest mode: a tab you can look around in without an account. Everything lives
- * in sessionStorage, which is scoped to the one tab and cleared when it closes —
- * a reload keeps the basket, closing the tab loses it. Nothing reaches Supabase.
+ * Guest mode: a tab you can look around in without an account. It starts empty —
+ * there are no ingredients in the app's source to start it with — and lives in
+ * sessionStorage, which is scoped to the one tab and cleared when it closes. A
+ * reload keeps the pantry; closing the tab loses it. Nothing reaches your rows in
+ * Supabase; the vocabulary is still read from there, as it is for everyone.
  */
 const KEY = 'spin-supper:guest';
 
-/**
- * A pantry to look around with, and the only ingredients named anywhere in the
- * source. A signed-in account never sees them: guest data is read from and
- * written to this tab alone.
- */
-function sample(addDays: (days: number) => string): Snapshot {
-  return {
-    catalogue: [
-      { name: 'Chicken Thighs', shortName: 'Chicken', category: 'protein', kind: 'poultry', glutenFree: null },
-      { name: 'Firm Tofu', shortName: 'Tofu', category: 'protein', kind: 'plant', glutenFree: null },
-      { name: 'Eggs', shortName: 'Egg', category: 'protein', kind: 'eggdairy', glutenFree: null },
-      { name: 'Broccoli', shortName: null, category: 'vegetable', kind: 'brassica', glutenFree: null },
-      { name: 'Baby Spinach', shortName: 'spinach', category: 'vegetable', kind: 'leafy', glutenFree: null },
-      { name: 'Mushrooms', shortName: null, category: 'vegetable', kind: 'mushroom', glutenFree: null },
-      { name: 'Jasmine Rice', shortName: 'Rice', category: 'starch', kind: 'grain', glutenFree: true },
-      { name: 'Rice Noodles', shortName: 'Noodle', category: 'starch', kind: 'noodle', glutenFree: true },
-      { name: 'Corn Tortillas', shortName: 'Tortilla', category: 'starch', kind: 'wraps', glutenFree: true },
-    ],
-    pantry: [
-      { name: 'Chicken Thighs', qty: 600, unit: 'g', expiresOn: addDays(2) },
-      { name: 'Eggs', qty: 8, unit: 'piece', expiresOn: addDays(9) },
-      { name: 'Baby Spinach', qty: 1, unit: 'bag', expiresOn: addDays(1) },
-      { name: 'Mushrooms', qty: 250, unit: 'g', expiresOn: addDays(4) },
-      { name: 'Jasmine Rice', qty: 1.5, unit: 'kg', expiresOn: addDays(90) },
-      { name: 'Corn Tortillas', qty: 10, unit: 'piece', expiresOn: addDays(12) },
-    ],
-    plan: [],
-    grocery: [
-      { name: 'Broccoli', qty: 1, unit: 'bunch', note: 'Drawn twice, never in stock', acquired: false },
-    ],
-    methodsOff: ['braise', 'slow_cook'],
-  };
-}
-
 export const isGuest = () => read() !== null;
 
-export function startGuest(addDays: (days: number) => string): Snapshot {
-  const basket = sample(addDays);
-  write(basket);
-  return basket;
+export function startGuest(): void {
+  write(EMPTY);
 }
 
 export const loadGuest = (): Snapshot => read() ?? EMPTY;
@@ -63,7 +29,11 @@ export function endGuest(): void {
 function read(): Snapshot | null {
   try {
     const raw = sessionStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Snapshot) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Snapshot;
+    // An older tab may hold ingredients from before methods could be ticked.
+    parsed.catalogue = parsed.catalogue.map((i) => ({ ...i, methods: i.methods ?? [] }));
+    return parsed;
   } catch {
     return null;
   }

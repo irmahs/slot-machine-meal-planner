@@ -1,6 +1,5 @@
 import type { Dispatch } from 'react';
 import { Switch } from '../components/Switch';
-import { DIETS, REPEAT_OPTIONS, type DietRule } from '../data/reference';
 import type { Action, PlannerState } from '../state/planner';
 
 interface Props {
@@ -8,27 +7,30 @@ interface Props {
   dispatch: Dispatch<Action>;
 }
 
+/** How long a dish stays off the reels once cooked. Days. */
+const REPEAT_OPTIONS = [3, 5, 7, 14];
+
 export function ReelRules({ state, dispatch }: Props) {
   return (
     <div className="rules">
       <div className="rcard">
         <div className="kicker">What stays off the reels</div>
         <div className="chip-row">
-          {DIETS.map((d) => (
+          {state.vocab.dietRules.map((rule) => (
             <button
-              key={d}
+              key={rule.code}
               type="button"
               className="diet-chip"
-              aria-pressed={state.diets.includes(d)}
-              onClick={() => dispatch({ type: 'rules/toggleDiet', diet: d as DietRule })}
+              aria-pressed={state.diets.includes(rule.code)}
+              onClick={() => dispatch({ type: 'rules/toggleDiet', code: rule.code })}
             >
-              {d}
+              {rule.label}
             </button>
           ))}
         </div>
         <p className="body-sm">
-          Read off each ingredient’s kind, so Pescatarian keeps fish and seafood and drops the rest,
-          and Gluten-free goes by the answer you gave when you added the starch.
+          Each rule is a row in meal_planner_diet_rules saying what it keeps off, read against each
+          ingredient’s kind — so a rule works on anything you add, and a new one is a new row.
         </p>
       </div>
 

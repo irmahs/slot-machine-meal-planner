@@ -1,6 +1,5 @@
 import type { Dispatch } from 'react';
 import { Switch } from '../components/Switch';
-import { METHODS, type MethodCode } from '../data/reference';
 import type { Action, PlannerState } from '../state/planner';
 
 interface Props {
@@ -9,34 +8,32 @@ interface Props {
 }
 
 /**
- * Methods are a fixed list because each one carries the participle its dish name
- * uses — "Air-fry" has to read as "Air-fried". Switching one off keeps it out of
- * the draw without losing that.
+ * The methods come from meal_planner_cooking_methods, each with the phrase its
+ * dish name uses. Which ones an ingredient can be cooked with is ticked on the
+ * ingredient; this screen switches a method off for everything at once.
  */
 export function CookingMethods({ state, dispatch }: Props) {
-  const on = METHODS.filter((m) => !state.methodsOff.includes(m.code));
+  const v = state.vocab;
+  const usedBy = (code: string) => state.catalogue.filter((i) => i.methods.includes(code)).length;
 
   return (
     <div className="page-narrow">
       <p className="intro">
-        Each draw picks one of the methods switched on here, and the dish is named after it —
-        {' '}<em>{on[0]?.phrase ?? 'Roasted'} Chicken Rice Bowl with charred broccoli</em>. Switch off
-        anything you don’t feel like doing this week.
+        Each ingredient says which of these it can be cooked with, ticked when you add it. A draw picks one
+        of those ticks for each pick — and anything switched off here is left out, whatever was ticked.
       </p>
-      {on.length === 0 && (
-        <p className="intro">
-          Everything is off, so dishes will be named without a method.
-        </p>
-      )}
       <ul className="rows">
-        {METHODS.map((m) => {
+        {v.methods.map((m) => {
           const enabled = !state.methodsOff.includes(m.code);
+          const count = usedBy(m.code);
           return (
             <li key={m.code} className={'lrow' + (enabled ? '' : ' lrow--done')}>
               <span className="lrow__main" style={{ cursor: 'default' }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="lrow__name">{m.label}</span>
-                  <span className="lrow__why">names a dish “{m.phrase} …”</span>
+                  <span className="lrow__why">
+                    “{m.phrase} …” · ticked on {count} {count === 1 ? 'ingredient' : 'ingredients'}
+                  </span>
                 </span>
               </span>
               <button
@@ -45,7 +42,7 @@ export function CookingMethods({ state, dispatch }: Props) {
                 role="switch"
                 aria-checked={enabled}
                 aria-label={m.label}
-                onClick={() => dispatch({ type: 'method/toggle', code: m.code as MethodCode })}
+                onClick={() => dispatch({ type: 'method/toggle', code: m.code })}
               >
                 {enabled ? 'On' : 'Off'}
                 <Switch on={enabled} />

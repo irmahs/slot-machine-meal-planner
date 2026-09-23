@@ -1,16 +1,5 @@
 import type { GroceryItem, Ingredient, PantryItem, PlanEntry } from '../data/model';
-import {
-  DEFAULT_UNIT,
-  METHODS,
-  PROTEIN_KINDS,
-  STARCH_KINDS,
-  UNITS,
-  VEGETABLE_KINDS,
-  type CategoryCode,
-  type DishStyle,
-  type MethodCode,
-  type UnitCode,
-} from '../data/reference';
+import { defaultUnit, type CategoryCode, type Vocab } from '../data/vocab';
 import { FEATURES } from '../features';
 import { supabase } from './supabase/client';
 
@@ -19,7 +8,7 @@ export interface Snapshot {
   pantry: PantryItem[];
   plan: PlanEntry[];
   grocery: GroceryItem[];
-  methodsOff: MethodCode[];
+  methodsOff: string[];
 }
 
 export const EMPTY: Snapshot = {
@@ -31,6 +20,7 @@ export const EMPTY: Snapshot = {
 };
 
 const INGREDIENTS = 'meal_planner_ingredients';
+const INGREDIENT_METHODS = 'meal_planner_ingredient_methods';
 const PANTRY = 'meal_planner_pantry';
 const HISTORY = 'meal_planner_history';
 const HISTORY_INGREDIENTS = 'meal_planner_history_ingredients';
@@ -38,24 +28,25 @@ const SHOPPING_LIST = 'meal_planner_shopping_list';
 const METHOD_SETTINGS = 'meal_planner_method_settings';
 
 /**
- * The reference tables are seeded by the migration with ids written out, and
- * src/data/reference.ts mirrors them, so codes resolve to ids here without a
- * round trip. The two must be changed together.
+ * Code ⇄ id lookups for one vocabulary. The app talks in codes; the tables key
+ * on ids. Both directions come from the rows loaded at startup, so there is no
+ * second copy of any id to keep in step with the migration.
  */
-const CATEGORY_ID: Record<CategoryCode, number> = { protein: 1, vegetable: 2, starch: 3 };
-const CATEGORY_CODE_BY_ID = new Map<number, CategoryCode>(
-  Object.entries(CATEGORY_ID).map(([code, id]) => [id, code as CategoryCode]),
-);
-const unitId = new Map<UnitCode, number>(UNITS.map((u) => [u.code, u.id]));
-const unitCode = new Map<number, UnitCode>(UNITS.map((u) => [u.id, u.code]));
-const methodId = new Map<MethodCode, number>(METHODS.map((m) => [m.code, m.id]));
-const methodCode = new Map<number, MethodCode>(METHODS.map((m) => [m.id, m.code]));
-const proteinId = new Map(PROTEIN_KINDS.map((k) => [k.code, k.id]));
-const proteinCode = new Map(PROTEIN_KINDS.map((k) => [k.id, k.code]));
-const vegetableId = new Map(VEGETABLE_KINDS.map((k) => [k.code, k.id]));
-const vegetableCode = new Map(VEGETABLE_KINDS.map((k) => [k.id, k.code]));
-const starchId = new Map(STARCH_KINDS.map((k) => [k.code, k.id]));
-const starchCode = new Map(STARCH_KINDS.map((k) => [k.id, k.code]));
+function lookups(v: Vocab) {
+  const pair = <T extends { id: number; code: string }>(rows: T[]) => ({
+    id: new Map(rows.map((r) => [r.code, r.id])),
+    code: new Map(rows.map((r) => [r.id, r.code])),
+  });
+  return {
+    category: pair(v.categories),
+    protein: pair(v.proteinKinds),
+    vegetable: pair(v.vegetableKinds),
+    starch: pair(v.starchKinds),
+    unit: pair(v.units),
+    method: pair(v.methods),
+    style: pair(v.dishStyles),
+  };
+}
 
 interface IngredientRow {
   id: string;
@@ -78,24 +69,29 @@ function orThrow(result: { error: unknown }): void {
 }
 
 /** The three kind columns, only one of which is ever set. */
-function kindColumns(item: Ingredient) {
+function kindColumns(item: Ingredient, l: ReturnType<typeof lookups>) {
   return {
-    id_protein_kind: item.category === 'protein' ? (proteinId.get(item.kind) ?? null) : null,
-    id_vegetable_kind: item.category === 'vegetable' ? (vegetableId.get(item.kind) ?? null) : null,
-    id_starch_kind: item.category === 'starch' ? (starchId.get(item.kind) ?? null) : null,
+    id_protein_kind: item.category === 'protein' ? (l.protein.id.get(item.kind) ?? null) : null,
+    id_vegetable_kind: item.category === 'vegetable' ? (l.vegetable.id.get(item.kind) ?? null) : null,
+    id_starch_kind: item.category === 'starch' ? (l.starch.id.get(item.kind) ?? null) : null,
   };
 }
 
-function toIngredient(row: IngredientRow): Ingredient {
-  const category = CATEGORY_CODE_BY_ID.get(row.id_category) ?? 'protein';
+function toIngredient(row: IngredientRow, l: ReturnType<typeof lookups>, methods: string[]): Ingredient {
+  const category = (l.category.code.get(row.id_category) ?? 'protein') as CategoryCode;
   const kind =
-    (category === 'protein' && row.id_protein_kind ? proteinCode.get(row.id_protein_kind) : null) ??
-    (category === 'vegetable' && row.id_vegetable_kind
-      ? vegetableCode.get(row.id_vegetable_kind)
-      : null) ??
-    (category === 'starch' && row.id_starch_kind ? starchCode.get(row.id_starch_kind) : null) ??
+    (category === 'protein' && row.id_protein_kind ? l.protein.code.get(row.id_protein_kind) : null) ??
+    (category === 'vegetable' && row.id_vegetable_kind ? l.vegetable.code.get(row.id_vegetable_kind) : null) ??
+    (category === 'starch' && row.id_starch_kind ? l.starch.code.get(row.id_starch_kind) : null) ??
     '';
-  return { name: row.name, shortName: row.short_name, category, kind, glutenFree: row.gluten_free };
+  return {
+    name: row.name,
+    shortName: row.short_name,
+    category,
+    kind,
+    glutenFree: row.gluten_free,
+    methods,
+  };
 }
 
 /** Resolves the names the app works in to the ids the tables key on. */
@@ -114,15 +110,21 @@ async function ingredientIds(userId: string, names: string[]): Promise<Map<strin
 }
 
 /** Everything the signed-in account has stored. A new account comes back empty. */
-export async function loadSnapshot(userId: string): Promise<Snapshot> {
+export async function loadSnapshot(userId: string, vocab: Vocab): Promise<Snapshot> {
   const db = client();
-  const [ingredients, pantry, history, links, list, methods] = await Promise.all([
+  const l = lookups(vocab);
+  const [ingredients, ticks, pantry, history, links, list, methods] = await Promise.all([
     db
       .from(INGREDIENTS)
       .select('id, name, short_name, id_category, id_protein_kind, id_vegetable_kind, id_starch_kind, gluten_free')
       .eq('user_id', userId)
       .order('name')
       .returns<IngredientRow[]>(),
+    db
+      .from(INGREDIENT_METHODS)
+      .select('id_ingredient, id_method')
+      .eq('user_id', userId)
+      .returns<Array<{ id_ingredient: string; id_method: number }>>(),
     db
       .from(PANTRY)
       .select('id_ingredient, quantity, id_unit, date_expiration')
@@ -144,7 +146,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
               id: string;
               name_meal: string;
               note: string;
-              dish_style: DishStyle;
+              dish_style: string;
               id_method: number | null;
               date_cooked: string;
             }>
@@ -177,10 +179,21 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
       .returns<Array<{ id_method: number; enabled: boolean }>>(),
   ]);
 
-  [ingredients, pantry, history, links, list, methods].forEach(orThrow);
+  [ingredients, ticks, pantry, history, links, list, methods].forEach(orThrow);
 
   const rows = ingredients.data ?? [];
   const nameOf = new Map(rows.map((row) => [row.id, row.name]));
+
+  // In the table's own order, so a ticked list reads the same everywhere.
+  const methodOrder = new Map(vocab.methods.map((m, i) => [m.code, i]));
+  const ticksOf = new Map<string, string[]>();
+  for (const t of ticks.data ?? []) {
+    const code = l.method.code.get(t.id_method);
+    if (code) ticksOf.set(t.id_ingredient, [...(ticksOf.get(t.id_ingredient) ?? []), code]);
+  }
+  for (const list of ticksOf.values()) {
+    list.sort((a, b) => (methodOrder.get(a) ?? 0) - (methodOrder.get(b) ?? 0));
+  }
 
   const linksByMeal = new Map<string, string[]>();
   for (const link of links.data ?? []) {
@@ -190,7 +203,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
   }
 
   return {
-    catalogue: rows.map(toIngredient),
+    catalogue: rows.map((row) => toIngredient(row, l, ticksOf.get(row.id) ?? [])),
     pantry: (pantry.data ?? []).flatMap((row) => {
       const name = nameOf.get(row.id_ingredient);
       return name
@@ -198,7 +211,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
             {
               name,
               qty: Number(row.quantity),
-              unit: unitCode.get(row.id_unit) ?? DEFAULT_UNIT,
+              unit: l.unit.code.get(row.id_unit) ?? defaultUnit(vocab),
               expiresOn: row.date_expiration,
             },
           ]
@@ -209,7 +222,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
       dish: row.name_meal,
       note: row.note,
       style: row.dish_style,
-      method: row.id_method ? (methodCode.get(row.id_method) ?? null) : null,
+      method: row.id_method ? (l.method.code.get(row.id_method) ?? null) : null,
       cookedOn: row.date_cooked,
       ingredients: linksByMeal.get(row.id) ?? [],
     })),
@@ -220,7 +233,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
             {
               name,
               qty: Number(row.quantity),
-              unit: unitCode.get(row.id_unit) ?? DEFAULT_UNIT,
+              unit: l.unit.code.get(row.id_unit) ?? defaultUnit(vocab),
               note: row.note,
               acquired: row.acquired,
             },
@@ -230,7 +243,7 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
     methodsOff: (methods.data ?? [])
       .filter((row) => !row.enabled)
       .flatMap((row) => {
-        const code = methodCode.get(row.id_method);
+        const code = l.method.code.get(row.id_method);
         return code ? [code] : [];
       }),
   };
@@ -241,8 +254,14 @@ export async function loadSnapshot(userId: string): Promise<Snapshot> {
  * the single source of truth — a compound action like "into the pot" needs no
  * persistence path of its own.
  */
-export async function writeChanges(userId: string, prev: Snapshot, next: Snapshot): Promise<void> {
+export async function writeChanges(
+  userId: string,
+  prev: Snapshot,
+  next: Snapshot,
+  vocab: Vocab,
+): Promise<void> {
   const db = client();
+  const l = lookups(vocab);
 
   // Ingredients go first: every other table points at one, so it has to exist.
   const ingredientChanged = next.catalogue.filter((item) => {
@@ -252,7 +271,8 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
       before.category !== item.category ||
       before.kind !== item.kind ||
       before.shortName !== item.shortName ||
-      before.glutenFree !== item.glutenFree
+      before.glutenFree !== item.glutenFree ||
+      before.methods.join() !== item.methods.join()
     );
   });
   if (ingredientChanged.length) {
@@ -262,13 +282,33 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
           user_id: userId,
           name: item.name,
           short_name: item.shortName,
-          id_category: CATEGORY_ID[item.category],
+          id_category: l.category.id.get(item.category),
           gluten_free: item.category === 'starch' ? item.glutenFree : null,
-          ...kindColumns(item),
+          ...kindColumns(item, l),
         })),
         { onConflict: 'user_id,name' },
       ),
     );
+  }
+
+  // Ticks: replaced per ingredient whose list changed. The ingredient row exists
+  // by now, so its id resolves and the policy's ownership check can see it.
+  if (ingredientChanged.length) {
+    const tickIds = await ingredientIds(userId, ingredientChanged.map((i) => i.name));
+    const ids = [...tickIds.values()];
+    if (ids.length) {
+      orThrow(await db.from(INGREDIENT_METHODS).delete().eq('user_id', userId).in('id_ingredient', ids));
+      const rows = ingredientChanged.flatMap((item) => {
+        const id = tickIds.get(item.name);
+        return id
+          ? item.methods.flatMap((code) => {
+              const method = l.method.id.get(code);
+              return method ? [{ user_id: userId, id_ingredient: id, id_method: method }] : [];
+            })
+          : [];
+      });
+      if (rows.length) orThrow(await db.from(INGREDIENT_METHODS).insert(rows));
+    }
   }
 
   const pantryUpserts = next.pantry.filter((item) => {
@@ -311,7 +351,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
                   user_id: userId,
                   id_ingredient: id,
                   quantity: item.qty,
-                  id_unit: unitId.get(item.unit),
+                  id_unit: l.unit.id.get(item.unit),
                   date_expiration: item.expiresOn,
                 },
               ]
@@ -334,7 +374,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
           name_meal: entry.dish,
           note: entry.note,
           dish_style: entry.style,
-          id_method: entry.method ? (methodId.get(entry.method) ?? null) : null,
+          id_method: entry.method ? (l.method.id.get(entry.method) ?? null) : null,
           date_cooked: entry.cookedOn,
         })),
       ),
@@ -364,7 +404,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
                   user_id: userId,
                   id_ingredient: id,
                   quantity: item.qty,
-                  id_unit: unitId.get(item.unit),
+                  id_unit: l.unit.id.get(item.unit),
                   note: item.note,
                   acquired: item.acquired,
                 },
@@ -388,7 +428,7 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
   if (turnedOff.length) {
     orThrow(
       await db.from(METHOD_SETTINGS).upsert(
-        turnedOff.map((code) => ({ user_id: userId, id_method: methodId.get(code), enabled: false })),
+        turnedOff.map((code) => ({ user_id: userId, id_method: l.method.id.get(code), enabled: false })),
         { onConflict: 'user_id,id_method' },
       ),
     );
@@ -399,10 +439,13 @@ export async function writeChanges(userId: string, prev: Snapshot, next: Snapsho
         .from(METHOD_SETTINGS)
         .delete()
         .eq('user_id', userId)
-        .in('id_method', turnedOn.flatMap((code) => {
-          const id = methodId.get(code);
-          return id ? [id] : [];
-        })),
+        .in(
+          'id_method',
+          turnedOn.flatMap((code) => {
+            const id = l.method.id.get(code);
+            return id ? [id] : [];
+          }),
+        ),
     );
   }
 }

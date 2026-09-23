@@ -1,31 +1,29 @@
 import type { Dispatch } from 'react';
 import { Icon } from '../components/Icon';
 import { Switch } from '../components/Switch';
-import {
-  CATEGORIES,
-  CATEGORY_ICON,
-  DATE_PRESETS,
-  UNITS,
-  type CategoryCode,
-  type UnitCode,
-} from '../data/reference';
+import { categoryIcon } from '../components/glyphs';
+import { kindsFor, labelOfCategory, type CategoryCode } from '../data/vocab';
 import { addDaysISO, daysUntil, todayISO } from '../lib/dates';
-import { kindOfDraft, kindsFor, type Action, type PlannerState } from '../state/planner';
+import { kindOfDraft, type Action, type AddDraft, type PlannerState } from '../state/planner';
 
 interface Props {
   state: PlannerState;
   dispatch: Dispatch<Action>;
 }
 
+/** Shortcuts for the use-by date. Days, and how the chip reads. */
+const DATE_PRESETS: Array<[number, string]> = [[3, '3 days'], [7, '1 week'], [14, '2 weeks'], [30, '1 month']];
+
 /**
- * Describing a new ingredient: its name, which reel it spins on, and what kind
- * it is. The kind is what a dish name and the diet filters read, which is why
- * it is asked for once here rather than guessed later.
+ * Describing a new ingredient: its name, which reel it spins on, what kind it is,
+ * and the ways it can be cooked. The kind and the ticks are what dish names and
+ * diet filters read, which is why they are asked for once here, not guessed later.
  */
 export function AddIngredient({ state, dispatch }: Props) {
+  const v = state.vocab;
   const d = state.draft;
-  const patch = (p: Partial<typeof d>) => dispatch({ type: 'draft/patch', patch: p });
-  const kinds = kindsFor(d.category);
+  const patch = (p: Partial<AddDraft>) => dispatch({ type: 'draft/patch', patch: p });
+  const kinds = kindsFor(v, d.category);
   const current = kindOfDraft(d);
   const hint = kinds.find((k) => k.code === current)?.examples;
 
@@ -37,6 +35,20 @@ export function AddIngredient({ state, dispatch }: Props) {
           ? { vegetableKind: code }
           : { starchKind: code },
     );
+
+  const ticked = v.methods.filter((m) => d.methods.includes(m.code));
+  const example =
+    d.category === 'protein' && ticked[0]
+      ? `A draw can call it “${ticked[0].phrase} ${d.shortName.trim() || d.name.trim() || '…'}”.`
+      : d.category === 'vegetable' && ticked[0]
+        ? `A draw can serve it “with ${ticked[0].phrase.toLowerCase()} ${(d.shortName.trim() || d.name.trim() || '…').toLowerCase()}”.`
+        : ticked.length
+          ? `${ticked.length} ticked.`
+          : d.category === 'protein'
+            ? 'Nothing ticked: its dishes will be named without a method.'
+            : d.category === 'vegetable'
+              ? 'Nothing ticked: its dishes use the word its kind comes with.'
+              : 'Nothing ticked: fine for most starches.';
 
   const dateSub =
     d.days === 0
@@ -76,15 +88,15 @@ export function AddIngredient({ state, dispatch }: Props) {
           onChange={(e) => patch({ shortName: e.target.value })}
         />
         <div className="body-sm">
-          What a dish name calls it. “Chicken Thighs” cooks as “Chicken”. Leave it empty to use the
-          full name.
+          What a dish name calls it. “Chicken Thighs” cooks as “Chicken”. Leave it empty to use the full
+          name.
         </div>
       </div>
 
       <div className="field" role="group" aria-labelledby="which-reel">
         <div id="which-reel" className="kicker">Which reel?</div>
         <div className="cat-cards">
-          {CATEGORIES.map((c) => (
+          {v.categories.map((c) => (
             <button
               key={c.code}
               type="button"
@@ -92,7 +104,7 @@ export function AddIngredient({ state, dispatch }: Props) {
               aria-pressed={d.category === c.code}
               onClick={() => patch({ category: c.code as CategoryCode })}
             >
-              <Icon d={CATEGORY_ICON[c.code]} size={32} />
+              <Icon d={categoryIcon(c.code)} size={32} />
               <span>{c.label}</span>
             </button>
           ))}
@@ -100,9 +112,7 @@ export function AddIngredient({ state, dispatch }: Props) {
       </div>
 
       <div className="field" role="group" aria-labelledby="kind-label">
-        <div id="kind-label" className="kicker">
-          {d.category === 'protein' ? 'What kind' : 'What type'}
-        </div>
+        <div id="kind-label" className="kicker">{d.category === 'protein' ? 'What kind' : 'What type'}</div>
         <div className="chip-row">
           {kinds.map((k) => (
             <button
@@ -130,6 +140,29 @@ export function AddIngredient({ state, dispatch }: Props) {
             Gluten-free
           </button>
         )}
+      </div>
+
+      <div className="field" role="group" aria-labelledby="how-label">
+        <div id="how-label" className="kicker">How can it be cooked?</div>
+        <div className="chip-row">
+          {v.methods.map((m) => {
+            const off = state.methodsOff.includes(m.code);
+            return (
+              <button
+                key={m.code}
+                type="button"
+                className="chip"
+                aria-pressed={d.methods.includes(m.code)}
+                title={off ? `${m.label} is switched off in Cooking methods this week` : undefined}
+                onClick={() => dispatch({ type: 'draft/toggleMethod', code: m.code })}
+              >
+                {m.label}
+                {off ? ' · off' : ''}
+              </button>
+            );
+          })}
+        </div>
+        <div className="body-sm">{example}</div>
       </div>
 
       <button
@@ -166,13 +199,7 @@ export function AddIngredient({ state, dispatch }: Props) {
                 }}
               />
               {DATE_PRESETS.map(([n, label]) => (
-                <button
-                  key={n}
-                  type="button"
-                  className="chip"
-                  aria-pressed={d.days === n}
-                  onClick={() => patch({ days: n })}
-                >
+                <button key={n} type="button" className="chip" aria-pressed={d.days === n} onClick={() => patch({ days: n })}>
                   {label}
                 </button>
               ))}
@@ -198,9 +225,9 @@ export function AddIngredient({ state, dispatch }: Props) {
                 aria-label="Unit"
                 className="unit-select"
                 value={d.unit}
-                onChange={(e) => patch({ unit: e.target.value as UnitCode })}
+                onChange={(e) => patch({ unit: e.target.value })}
               >
-                {UNITS.map((u) => (
+                {v.units.map((u) => (
                   <option key={u.code} value={u.code}>{u.code}</option>
                 ))}
               </select>
@@ -214,7 +241,7 @@ export function AddIngredient({ state, dispatch }: Props) {
         className={'btn submit' + (d.name.trim() ? '' : ' btn--muted')}
         aria-disabled={!d.name.trim()}
       >
-        Add to the {CATEGORIES.find((c) => c.code === d.category)?.label.toLowerCase()} reel
+        Add to the {labelOfCategory(v, d.category).toLowerCase()} reel
       </button>
       {state.flash && <div className="flash" role="status">{state.flash}</div>}
     </form>

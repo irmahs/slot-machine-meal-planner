@@ -1,13 +1,20 @@
 import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
+import { loadVocab } from '../data/vocab';
 import { snapshotOf, type Action, type PlannerState } from '../state/planner';
-import { addDaysISO } from './dates';
 import * as guest from './guest';
-import { loadSnapshot, writeChanges, EMPTY, type Snapshot } from './remote';
+import { EMPTY, loadSnapshot, writeChanges, type Snapshot } from './remote';
 import { currentSession, onAuthChange, signOut as supabaseSignOut } from './supabase/auth';
 import { isConfigured } from './supabase/client';
 
-export type Phase = 'booting' | 'signed-out' | 'ready';
+/**
+ * `booting`  — loading the vocabulary, then finding out who you are
+ * `signed-out` — the sign-in page
+ * `ready`    — the app
+ * `broken`   — the vocabulary could not be loaded, and without it the app has
+ *              no words for anything, so it says so instead of opening empty
+ */
+export type Phase = 'booting' | 'signed-out' | 'ready' | 'broken';
 
 export interface RemoteSync {
   phase: Phase;
@@ -20,22 +27,40 @@ export interface RemoteSync {
 }
 
 /**
- * Mirrors the reducer into storage: hydrate on sign-in, then write only what changed on every
- * subsequent state change. Signed in, that store is Supabase and an account with no rows starts
- * empty. As a guest it is sessionStorage, so the basket survives a reload and dies with the tab.
+ * Loads the vocabulary, then mirrors the reducer into storage: hydrate on
+ * sign-in, and write only what changed on every state change after. Signed in,
+ * that store is Supabase. As a guest it is sessionStorage, so the pantry
+ * survives a reload and dies with the tab.
  */
 export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): RemoteSync {
   const [isGuest, setIsGuest] = useState(guest.isGuest);
-  // Nothing to show without credentials, so the sign-in page offers the guest tab instead.
-  const [phase, setPhase] = useState<Phase>(() =>
-    guest.isGuest() ? 'ready' : isConfigured ? 'booting' : 'signed-out',
-  );
+  const [vocabReady, setVocabReady] = useState(false);
+  const [phase, setPhase] = useState<Phase>(isConfigured ? 'booting' : 'signed-out');
   const [session, setSession] = useState<Session | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const synced = useRef<Snapshot | null>(null);
 
+  // Everything else waits on this: no screen has a word to show without it.
   useEffect(() => {
-    if (!isConfigured || isGuest) return;
+    if (!isConfigured) return;
+    let cancelled = false;
+    loadVocab()
+      .then((vocab) => {
+        if (cancelled) return;
+        dispatch({ type: 'vocab/load', vocab });
+        setVocabReady(true);
+      })
+      .catch((error) => {
+        console.error('Could not load the reference tables', error);
+        if (!cancelled) setPhase('broken');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!vocabReady || isGuest) return;
 
     currentSession().then((existing) => {
       setSession(existing);
@@ -49,31 +74,32 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
         setPhase('signed-out');
       }
     });
-  }, [isGuest]);
+  }, [vocabReady, isGuest]);
 
-  // A guest reload picks the basket back up out of this tab's storage.
+  // A guest reload picks the pantry back up out of this tab's storage.
   useEffect(() => {
-    if (!isGuest || synced.current) return;
+    if (!vocabReady || !isGuest || synced.current) return;
     const stored = guest.loadGuest();
     dispatch({ type: 'state/hydrate', snapshot: stored });
     synced.current = stored;
     setPhase('ready');
-  }, [isGuest, dispatch]);
+  }, [vocabReady, isGuest, dispatch]);
 
   const userId = session?.user.id;
+  const vocab = state.vocab;
   useEffect(() => {
-    if (!isConfigured || isGuest || !userId) return;
+    if (!vocabReady || isGuest || !userId) return;
     let cancelled = false;
 
     (async () => {
       try {
-        const stored = await loadSnapshot(userId);
+        const stored = await loadSnapshot(userId, vocab);
         if (cancelled) return;
         dispatch({ type: 'state/hydrate', snapshot: stored });
         synced.current = stored;
         setSaveFailed(false);
       } catch (error) {
-        console.error('Could not load your saved fridge', error);
+        console.error('Could not load your pantry', error);
         setSaveFailed(true);
       } finally {
         if (!cancelled) setPhase('ready');
@@ -83,7 +109,7 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
     return () => {
       cancelled = true;
     };
-  }, [userId, isGuest, dispatch]);
+  }, [vocabReady, userId, isGuest, vocab, dispatch]);
 
   useEffect(() => {
     const prev = synced.current;
@@ -104,9 +130,9 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
       guest.saveGuest(next);
       return;
     }
-    if (!isConfigured || !userId) return;
+    if (!userId) return;
 
-    writeChanges(userId, prev, next)
+    writeChanges(userId, prev, next, state.vocab)
       .then(() => setSaveFailed(false))
       .catch((error) => {
         console.error('Could not save that change', error);
@@ -115,12 +141,13 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
   }, [state, userId, phase, isGuest]);
 
   const startGuest = useCallback(() => {
-    const basket = guest.startGuest((days) => addDaysISO(days));
-    dispatch({ type: 'state/hydrate', snapshot: basket });
-    synced.current = basket;
+    if (!vocabReady) return;
+    guest.startGuest();
+    dispatch({ type: 'state/hydrate', snapshot: EMPTY });
+    synced.current = EMPTY;
     setIsGuest(true);
     setPhase('ready');
-  }, [dispatch]);
+  }, [vocabReady, dispatch]);
 
   const signOut = useCallback(() => {
     if (isGuest) {
@@ -128,7 +155,7 @@ export function useRemoteSync(state: PlannerState, dispatch: Dispatch<Action>): 
       synced.current = null;
       dispatch({ type: 'state/hydrate', snapshot: EMPTY });
       setIsGuest(false);
-      setPhase(isConfigured ? 'booting' : 'signed-out');
+      setPhase('signed-out');
       return;
     }
     supabaseSignOut();

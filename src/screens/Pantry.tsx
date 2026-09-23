@@ -1,12 +1,5 @@
 import type { Dispatch } from 'react';
-import {
-  CATEGORIES,
-  UNITS,
-  formatQuantity,
-  labelOfCategory,
-  type CategoryCode,
-  type UnitCode,
-} from '../data/reference';
+import { formatQuantity, labelOfCategory, type CategoryCode } from '../data/vocab';
 import { daysLeft, daysNote, ingredientOf } from '../engine/reel';
 import { addDaysISO, daysUntil, todayISO } from '../lib/dates';
 import type { Action, PlannerState } from '../state/planner';
@@ -16,23 +9,17 @@ interface Props {
   dispatch: Dispatch<Action>;
 }
 
-const FILTERS: Array<[CategoryCode | 'all', string]> = [
-  ['all', 'All'],
-  ['protein', 'Protein'],
-  ['vegetable', 'Vegetables'],
-  ['starch', 'Starch'],
-];
-
 /**
  * The pantry is what the reels draw from. Stocking something picks from the
- * ingredients you have already described — the dropdown is the whole list,
- * minus whatever is in the pantry already.
+ * ingredients you have already described — the dropdown is the whole list, minus
+ * whatever is in the pantry already.
  */
 export function Pantry({ state, dispatch }: Props) {
-  const categoryOf = (name: string) => ingredientOf(state.catalogue, name)?.category;
+  const v = state.vocab;
+  const ingredient = (name: string) => ingredientOf(state.catalogue, name);
 
   const rows = state.pantry
-    .filter((p) => state.pantryFilter === 'all' || categoryOf(p.name) === state.pantryFilter)
+    .filter((p) => state.pantryFilter === 'all' || ingredient(p.name)?.category === state.pantryFilter)
     .slice()
     .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn));
 
@@ -42,6 +29,8 @@ export function Pantry({ state, dispatch }: Props) {
 
   const s = state.stock;
   const patch = (p: Partial<typeof s>) => dispatch({ type: 'stock/patch', patch: p });
+  const methodLabels = (codes: string[]) =>
+    codes.map((c) => v.methods.find((m) => m.code === c)?.label).filter(Boolean).join(' · ');
 
   return (
     <div className="stack" style={{ gap: 20 }}>
@@ -59,10 +48,8 @@ export function Pantry({ state, dispatch }: Props) {
           value={s.name}
           onChange={(e) => patch({ name: e.target.value })}
         >
-          <option value="">
-            {stockable.length ? 'Stock an ingredient…' : 'Everything you have is in the pantry'}
-          </option>
-          {CATEGORIES.map((c) => {
+          <option value="">{stockable.length ? 'Stock an ingredient…' : 'Everything you have is in the pantry'}</option>
+          {v.categories.map((c) => {
             const items = stockable.filter((i) => i.category === c.code);
             return items.length ? (
               <optgroup key={c.code} label={c.label}>
@@ -83,13 +70,8 @@ export function Pantry({ state, dispatch }: Props) {
           value={s.qty}
           onChange={(e) => patch({ qty: e.target.value })}
         />
-        <select
-          aria-label="Unit"
-          className="unit-select"
-          value={s.unit}
-          onChange={(e) => patch({ unit: e.target.value as UnitCode })}
-        >
-          {UNITS.map((u) => (
+        <select aria-label="Unit" className="unit-select" value={s.unit} onChange={(e) => patch({ unit: e.target.value })}>
+          {v.units.map((u) => (
             <option key={u.code} value={u.code}>{u.code}</option>
           ))}
         </select>
@@ -109,15 +91,23 @@ export function Pantry({ state, dispatch }: Props) {
       </form>
 
       <div className="toolbar">
-        {FILTERS.map(([key, label]) => (
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={state.pantryFilter === 'all'}
+          onClick={() => dispatch({ type: 'pantry/filter', filter: 'all' })}
+        >
+          All
+        </button>
+        {v.categories.map((c) => (
           <button
-            key={key}
+            key={c.code}
             type="button"
             className="chip"
-            aria-pressed={state.pantryFilter === key}
-            onClick={() => dispatch({ type: 'pantry/filter', filter: key })}
+            aria-pressed={state.pantryFilter === c.code}
+            onClick={() => dispatch({ type: 'pantry/filter', filter: c.code as CategoryCode })}
           >
-            {label}
+            {c.label}
           </button>
         ))}
         <div className="toolbar__spacer" />
@@ -128,8 +118,8 @@ export function Pantry({ state, dispatch }: Props) {
 
       {state.catalogue.length === 0 && (
         <p className="intro">
-          No ingredients yet. <strong>New ingredient</strong> describes one — its reel and its kind —
-          and then it can be stocked here.
+          No ingredients yet. <strong>New ingredient</strong> describes one — its reel, its kind and the
+          ways it can be cooked — and then it can be stocked here.
         </p>
       )}
       {state.catalogue.length > 0 && rows.length === 0 && (
@@ -141,7 +131,8 @@ export function Pantry({ state, dispatch }: Props) {
           const left = daysLeft(p);
           const soon = left <= 3;
           const mid = left <= 10;
-          const category = categoryOf(p.name);
+          const described = ingredient(p.name);
+          const how = methodLabels(described?.methods ?? []);
           return (
             <article key={p.name} className={'pcard' + (soon ? ' pcard--soon' : '')}>
               <div className="pcard__head">
@@ -150,7 +141,7 @@ export function Pantry({ state, dispatch }: Props) {
                     {soon ? 'Use it' : mid ? 'Fresh' : 'Stocked'}
                   </span>
                   <span className="badge badge--line">
-                    {category ? labelOfCategory(category) : 'Unknown'}
+                    {described ? labelOfCategory(v, described.category) : 'Unknown'}
                   </span>
                 </div>
                 <button
@@ -165,8 +156,9 @@ export function Pantry({ state, dispatch }: Props) {
               <div>
                 <div className="pcard__name">{p.name}</div>
                 <div className="body-sm pcard__sub">
-                  {formatQuantity(p.qty, p.unit)} · {daysNote(left)}
+                  {formatQuantity(v, p.qty, p.unit)} · {daysNote(left)}
                 </div>
+                {how && <div className="body-sm pcard__sub">{how}</div>}
               </div>
               <div className="bar" role="presentation">
                 <div style={{ width: `${Math.max(6, Math.min(100, Math.round((left / 14) * 100)))}%` }} />

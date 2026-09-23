@@ -87,34 +87,68 @@ on conflict (id) do update
   set code = excluded.code, label = excluded.label, examples = excluded.examples,
       cooking_word = excluded.cooking_word;
 
+-- The shape a dish takes, decided by its starch. `name_template` is the whole
+-- sentence a dish name is built from; the app fills the placeholders and knows
+-- no wording of its own. Placeholders, any of which may be left out:
+--
+--   {method}            the protein's cooking method, as stored: "Air-fried"
+--   {protein}           the protein's short name: "Chicken"
+--   {starch}            the starch's short name: "Rice"
+--   {starch_method}     the starch's cooking method, lower case: "steamed"
+--   {vegetable}         the vegetable's short name, lower case: "broccoli"
+--   {vegetable_method}  the vegetable's cooking method, lower case, or its kind's
+--                       cooking_word when none of its methods is in rotation
+--
+-- A placeholder with nothing to fill it disappears along with its extra space,
+-- and the first letter of the result is capitalised.
+create table if not exists public.meal_planner_dish_styles (
+  id smallint primary key,
+  code text not null unique,
+  label text not null,
+  name_template text not null
+);
+
+insert into public.meal_planner_dish_styles (id, code, label, name_template) values
+  (1, 'bowl', 'Rice bowl', '{method} {protein} {starch} Bowl with {vegetable_method} {vegetable}'),
+  (2, 'noodles', 'Noodle bowl', '{method} {protein} {starch} Stir-Fry with {vegetable_method} {vegetable}'),
+  (3, 'salad', 'Salad bowl', '{method} {protein} & {starch} Salad with {vegetable_method} {vegetable}'),
+  (4, 'tacos', 'Tacos', '{method} {protein} Tacos with {vegetable_method} {vegetable}'),
+  (5, 'skillet', 'Skillet', '{method} {protein} {starch} Skillet with {vegetable_method} {vegetable}'),
+  (6, 'roast', 'Roasting tray', '{method} {protein} & {starch_method} {starch} Tray with {vegetable_method} {vegetable}')
+on conflict (id) do update
+  set code = excluded.code, label = excluded.label, name_template = excluded.name_template;
+
 create table if not exists public.meal_planner_starch_kinds (
   id smallint primary key,
   code text not null unique,
   label text not null,
   examples text not null default '',
   -- The shape of the finished dish, which picks the name template and the icon.
-  dish_style text not null
-    check (dish_style in ('bowl', 'noodles', 'salad', 'tacos', 'skillet', 'roast')),
+  id_dish_style smallint not null references public.meal_planner_dish_styles,
   -- The default for a new ingredient of this kind; the ingredient may override it.
   gluten_free boolean not null default false
 );
 
-insert into public.meal_planner_starch_kinds (id, code, label, examples, dish_style, gluten_free) values
-  (1, 'grain', 'Grains', 'Rice, farro, quinoa, bulgur', 'bowl', true),
-  (2, 'noodle', 'Noodles', 'Udon, rice noodles, soba', 'noodles', false),
-  (3, 'bread', 'Bread', 'Sourdough, ciabatta, naan', 'skillet', false),
-  (4, 'wraps', 'Wraps', 'Tortillas, pita, flatbread', 'tacos', false),
-  (5, 'tuber', 'Potatoes & roots', 'Potato, sweet potato, polenta', 'roast', true),
-  (6, 'wholegrain', 'Whole grains', 'Farro, quinoa, bulgur, couscous', 'salad', false)
+insert into public.meal_planner_starch_kinds (id, code, label, examples, id_dish_style, gluten_free) values
+  (1, 'grain', 'Grains', 'Rice, farro, quinoa, bulgur', 1, true),
+  (2, 'noodle', 'Noodles', 'Udon, rice noodles, soba', 2, false),
+  (3, 'bread', 'Bread', 'Sourdough, ciabatta, naan', 5, false),
+  (4, 'wraps', 'Wraps', 'Tortillas, pita, flatbread', 4, false),
+  (5, 'tuber', 'Potatoes & roots', 'Potato, sweet potato, polenta', 6, true),
+  (6, 'wholegrain', 'Whole grains', 'Farro, quinoa, bulgur, couscous', 3, false)
 on conflict (id) do update
   set code = excluded.code, label = excluded.label, examples = excluded.examples,
-      dish_style = excluded.dish_style, gluten_free = excluded.gluten_free;
+      id_dish_style = excluded.id_dish_style, gluten_free = excluded.gluten_free;
 
 -- How much of something. A quantity is always a number and one of these.
 create table if not exists public.meal_planner_units (
   id smallint primary key,
   code text not null unique,
-  label text not null
+  label text not null,
+  -- A count reads as "×8"; anything else as "600 g".
+  is_count boolean not null default false,
+  -- The unit a new item starts on. Exactly one row should say so.
+  is_default boolean not null default false
 );
 
 insert into public.meal_planner_units (id, code, label) values
@@ -131,6 +165,8 @@ insert into public.meal_planner_units (id, code, label) values
   (11, 'can', 'cans'),
   (12, 'pot', 'pots')
 on conflict (id) do update set code = excluded.code, label = excluded.label;
+
+update public.meal_planner_units set is_count = (code = 'piece'), is_default = (code = 'piece');
 
 -- Cooking methods. `phrase` is the past participle the dish name uses, which is
 -- why this is a table and not a list of words in the app: "Air-fry" has to
@@ -155,6 +191,32 @@ insert into public.meal_planner_cooking_methods (id, code, label, phrase) values
   (10, 'slow_cook', 'Slow-cook', 'Slow-cooked')
 on conflict (id) do update
   set code = excluded.code, label = excluded.label, phrase = excluded.phrase;
+
+-- The chips on the Reel rules screen. Each rule is described by what it keeps
+-- off the reels, in terms of the kind columns above, so the app applies any row
+-- here without knowing any rule by name.
+create table if not exists public.meal_planner_diet_rules (
+  id smallint primary key,
+  code text not null unique,
+  label text not null,
+  -- Protein kinds whose `diet` is in this list are kept off.
+  excludes_diets text[] not null default '{}',
+  -- Protein kinds with is_red_meat are kept off.
+  excludes_red_meat boolean not null default false,
+  -- Starches that are not gluten-free are kept off.
+  requires_gluten_free boolean not null default false
+);
+
+insert into public.meal_planner_diet_rules
+  (id, code, label, excludes_diets, excludes_red_meat, requires_gluten_free) values
+  (1, 'vegetarian', 'Vegetarian', '{meat,fish}', false, false),
+  (2, 'pescatarian', 'Pescatarian', '{meat}', false, false),
+  (3, 'no_red_meat', 'No red meat', '{}', true, false),
+  (4, 'gluten_free', 'Gluten-free', '{}', false, true)
+on conflict (id) do update
+  set code = excluded.code, label = excluded.label, excludes_diets = excluded.excludes_diets,
+      excludes_red_meat = excluded.excludes_red_meat,
+      requires_gluten_free = excluded.requires_gluten_free;
 
 
 -- ── Your data ────────────────────────────────────────────────────────────────
@@ -194,6 +256,21 @@ create table if not exists public.meal_planner_ingredients (
       else false
     end
   )
+);
+
+-- The ways you said an ingredient can be cooked, ticked on Add ingredient. A dish
+-- is only ever named after a method ticked here: the protein's gives {method},
+-- the vegetable's {vegetable_method}, the starch's {starch_method}.
+--
+-- user_id is carried even though the ingredient already says who owns it, so the
+-- policy is a plain comparison, and the insert check also confirms the
+-- ingredient is yours — a row cannot tick a method onto someone else's.
+create table if not exists public.meal_planner_ingredient_methods (
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  id_ingredient uuid not null
+    references public.meal_planner_ingredients on delete cascade,
+  id_method smallint not null references public.meal_planner_cooking_methods,
+  primary key (id_ingredient, id_method)
 );
 
 -- What is actually in the pantry, and when it goes off. The reels are built from
@@ -247,6 +324,8 @@ create table if not exists public.meal_planner_shopping_list (
 
 create index if not exists meal_planner_ingredients_user_category_idx
   on public.meal_planner_ingredients (user_id, id_category);
+create index if not exists meal_planner_ingredient_methods_user_idx
+  on public.meal_planner_ingredient_methods (user_id);
 create index if not exists meal_planner_pantry_user_expiry_idx
   on public.meal_planner_pantry (user_id, date_expiration);
 create index if not exists meal_planner_shopping_list_user_created_idx
@@ -261,22 +340,28 @@ alter table public.meal_planner_vegetable_kinds enable row level security;
 alter table public.meal_planner_starch_kinds enable row level security;
 alter table public.meal_planner_units enable row level security;
 alter table public.meal_planner_cooking_methods enable row level security;
+alter table public.meal_planner_dish_styles enable row level security;
+alter table public.meal_planner_diet_rules enable row level security;
+alter table public.meal_planner_ingredient_methods enable row level security;
 alter table public.meal_planner_ingredients enable row level security;
 alter table public.meal_planner_pantry enable row level security;
 alter table public.meal_planner_method_settings enable row level security;
 alter table public.meal_planner_shopping_list enable row level security;
 
--- Reference data: readable by anyone signed in, writable by no one.
+-- Reference data: readable by anyone, writable by no one. `anon` as well as
+-- `authenticated`, because the app loads its whole vocabulary before anyone has
+-- signed in — and a guest never signs in at all. None of it is personal.
 do $$
 declare t text;
 begin
   foreach t in array array[
     'meal_planner_categories', 'meal_planner_protein_kinds', 'meal_planner_vegetable_kinds',
-    'meal_planner_starch_kinds', 'meal_planner_units', 'meal_planner_cooking_methods'
+    'meal_planner_dish_styles', 'meal_planner_starch_kinds', 'meal_planner_units',
+    'meal_planner_cooking_methods', 'meal_planner_diet_rules'
   ] loop
     execute format('drop policy if exists %I on public.%I', 'read ' || t, t);
     execute format(
-      'create policy %I on public.%I for select to authenticated using (true)', 'read ' || t, t);
+      'create policy %I on public.%I for select to anon, authenticated using (true)', 'read ' || t, t);
   end loop;
 end $$;
 
@@ -296,3 +381,16 @@ begin
       'own ' || t, t);
   end loop;
 end $$;
+
+-- Ticks: yours, and only onto an ingredient that is also yours.
+drop policy if exists "own ingredient methods" on public.meal_planner_ingredient_methods;
+create policy "own ingredient methods" on public.meal_planner_ingredient_methods
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check (
+    (select auth.uid()) = user_id
+    and exists (
+      select 1 from public.meal_planner_ingredients i
+      where i.id = id_ingredient and i.user_id = (select auth.uid())
+    )
+  );

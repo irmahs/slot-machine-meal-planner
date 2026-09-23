@@ -1,5 +1,5 @@
 import { Icon } from '../components/Icon';
-import { DISH_ICON } from '../data/reference';
+import { dishIcon } from '../components/glyphs';
 import { dayLabel } from '../lib/dates';
 import type { PlannerState } from '../state/planner';
 
@@ -22,7 +22,7 @@ export function Cooked({ state }: { state: PlannerState }) {
         )}
         {state.plan.map((e, i) => (
           <li key={e.id} className={'hrow' + (i === 0 ? ' hrow--latest' : '')}>
-            <div className="hrow__icon"><Icon d={DISH_ICON[e.style]} size={30} /></div>
+            <div className="hrow__icon"><Icon d={dishIcon(e.style)} size={30} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="hrow__dish">{e.dish}</div>
               <div className="body-sm hrow__sub">{e.note}</div>

@@ -1,14 +1,8 @@
 import { useMemo, type Dispatch } from 'react';
 import { Icon } from '../components/Icon';
-import {
-  CATEGORIES,
-  COOK_ICONS,
-  DISH_ICON,
-  DISH_KIND,
-  labelOfCategory,
-  type CategoryCode,
-} from '../data/reference';
+import { COOK_ICONS, dishIcon } from '../components/glyphs';
 import type { Ingredient } from '../data/model';
+import { labelOfCategory, methodOf } from '../data/vocab';
 import {
   CELL_H,
   STRIP_REPEATS,
@@ -17,7 +11,6 @@ import {
   dishName,
   emptyReels,
   ingredientOf,
-  methodOf,
   reelsFrom,
   styleOf,
   type Triple,
@@ -34,24 +27,26 @@ const listOf = (words: string[]) =>
   words.length === 1 ? words[0] : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 
 export function Draw({ state, dispatch, onSpin }: DrawProps) {
+  const v = state.vocab;
   const reels = useMemo(
-    () => reelsFrom(state.pantry, state.catalogue),
-    [state.pantry, state.catalogue],
+    () => reelsFrom(state.pantry, state.catalogue, v),
+    [state.pantry, state.catalogue, v],
   );
-  const ready = canSpin(reels);
+  const ready = canSpin(reels, v);
   const settled = state.picked !== null && !state.spinning;
 
   const picks = (state.picked ?? [null, null, null]).map((name) =>
     name ? ingredientOf(state.catalogue, name) : undefined,
   ) as Triple<Ingredient | undefined>;
-  const style = styleOf(picks[2]);
-  const method = methodOf(state.method);
+  const methods = state.methods ?? [null, null, null];
+  const style = styleOf(picks[2], v);
+  const lead = methodOf(v, methods[0]);
 
   const expiring = [...state.pantry]
     .filter((p) => daysLeft(p) <= 3)
     .sort((a, b) => daysLeft(a) - daysLeft(b));
 
-  const missing = emptyReels(reels).map((c) => labelOfCategory(c).toLowerCase());
+  const missing = emptyReels(reels, v).map((c) => labelOfCategory(v, c).toLowerCase());
   const hint = !ready
     ? `Stock ${listOf(missing)} to draw.`
     : state.spinning
@@ -60,18 +55,11 @@ export function Draw({ state, dispatch, onSpin }: DrawProps) {
         ? 'Click a column to hold it, then draw again.'
         : 'Draw three — or press';
 
-  const toneOf = (name: string) => {
-    const stocked = state.pantry.find((p) => p.name === name);
-    return !stocked ? 'buy' : daysLeft(stocked) <= 3 ? 'soon' : 'fresh';
-  };
-
   return (
     <div className="draw">
       <section className="draw__left" aria-label="Reels">
         <div className="day-head">
-          <div className="day-head__day">
-            {new Date().toLocaleDateString('en-GB', { weekday: 'long' })}
-          </div>
+          <div className="day-head__day">{new Date().toLocaleDateString('en-GB', { weekday: 'long' })}</div>
           <h2 className="day-head__title">what the pantry holds</h2>
           <div className="day-head__rule" />
         </div>
@@ -79,13 +67,13 @@ export function Draw({ state, dispatch, onSpin }: DrawProps) {
         <div className="reels">
           <div className="payline" />
           {reels.map((list, k) => {
-            const label = CATEGORIES[k].label;
+            const label = v.categories[k]?.label ?? '';
             const locked = state.locks[k];
             const empty = list.length === 0;
             const toggle = () => !empty && dispatch({ type: 'reel/toggleLock', reel: k });
             return (
               <div
-                key={CATEGORIES[k].code}
+                key={v.categories[k]?.code ?? k}
                 className="reel"
                 role="button"
                 tabIndex={empty ? -1 : 0}
@@ -109,10 +97,7 @@ export function Draw({ state, dispatch, onSpin }: DrawProps) {
                 ) : (
                   <div
                     className="reel__strip"
-                    style={{
-                      transform: `translateY(${-state.idx[k] * CELL_H}px)`,
-                      transitionDuration: state.dur[k],
-                    }}
+                    style={{ transform: `translateY(${-state.idx[k] * CELL_H}px)`, transitionDuration: state.dur[k] }}
                   >
                     {Array.from({ length: STRIP_REPEATS }, (_, r) =>
                       list.map((item, i) => {
@@ -158,12 +143,7 @@ export function Draw({ state, dispatch, onSpin }: DrawProps) {
             <div className="recipe__empty">
               <div className="loader" aria-hidden="true">
                 {COOK_ICONS.map((d, i) => (
-                  <Icon
-                    key={i}
-                    d={d}
-                    size={52}
-                    style={{ color: 'var(--green)', animationDelay: `${(i * 0.75).toFixed(2)}s` }}
-                  />
+                  <Icon key={i} d={d} size={52} style={{ color: 'var(--green)', animationDelay: `${(i * 0.75).toFixed(2)}s` }} />
                 ))}
               </div>
               <div className="recipe__question">what will we be cooking tonight?</div>
@@ -173,27 +153,29 @@ export function Draw({ state, dispatch, onSpin }: DrawProps) {
             <>
               <div className="recipe__art">
                 <div className="recipe__disc">
-                  <Icon d={DISH_ICON[style]} size={64} style={{ color: 'var(--green)' }} />
+                  <Icon d={dishIcon(style?.code)} size={64} style={{ color: 'var(--green)' }} />
                 </div>
-                <div className="recipe__kind">{DISH_KIND[style]}</div>
+                <div className="recipe__kind">{style?.label}</div>
               </div>
               <div className="recipe__body">
                 <div className="kicker">This evening</div>
-                <h3 className="recipe__dish">{dishName(picks, state.method)}</h3>
+                <h3 className="recipe__dish">{dishName(picks, methods, v)}</h3>
                 <div className="chip-row">
-                  {method && <span className="tag tone-green">Method · {method.label}</span>}
-                  {picks.map((i, k) =>
-                    i ? (
-                      <span key={i.name} className={'tag tone-' + toneOf(i.name)}>
-                        {i.name}
-                        {toneOf(i.name) === 'soon' ? ' · use it up' : ''}
+                  {lead && <span className="tag tone-green">Method · {lead.label}</span>}
+                  {picks.map((ingredient, k) => {
+                    if (!ingredient) return null;
+                    const stocked = state.pantry.find((p) => p.name === ingredient.name);
+                    const soon = stocked !== undefined && daysLeft(stocked) <= 3;
+                    // The protein's method is the lead tag; the others ride on their own tag.
+                    const how = k > 0 ? methodOf(v, methods[k])?.phrase.toLowerCase() : undefined;
+                    return (
+                      <span key={ingredient.name} className={'tag tone-' + (soon ? 'soon' : 'fresh')}>
+                        {ingredient.name}
+                        {how ? ` · ${how}` : ''}
+                        {soon ? ' · use it up' : ''}
                       </span>
-                    ) : (
-                      <span key={k} className="tag tone-buy">
-                        no {labelOfCategory(CATEGORIES[k].code as CategoryCode).toLowerCase()}
-                      </span>
-                    ),
-                  )}
+                    );
+                  })}
                 </div>
                 <div className="recipe__actions">
                   <button type="button" className="btn" onClick={() => dispatch({ type: 'dish/cook' })}>
