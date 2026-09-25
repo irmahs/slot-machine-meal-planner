@@ -2,7 +2,8 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch } from "react";
 
-import { loadVocab } from "../data/vocab";
+import { loadVocab, whyLoadFailed } from "../data/vocab";
+import type { LoadFailure } from "../data/vocab";
 import { snapshotOf } from "../state/planner";
 import type { Action, PlannerState } from "../state/planner";
 import { loadDemo } from "./demo";
@@ -27,6 +28,8 @@ export type Phase = "booting" | "signed-out" | "ready" | "broken";
 
 export interface RemoteSync {
   phase: Phase;
+  /** Set when `phase` is `broken`: what went wrong reading the reference tables. */
+  failure: LoadFailure | null;
   email: string | null;
   /** Looking around without an account: this tab only, nothing written to Supabase. */
   guest: boolean;
@@ -47,6 +50,7 @@ export function useRemoteSync(
 ): RemoteSync {
   const [isGuest, setIsGuest] = useState(guest.isGuest);
   const [vocabReady, setVocabReady] = useState(false);
+  const [failure, setFailure] = useState<LoadFailure | null>(null);
   const [phase, setPhase] = useState<Phase>(
     isConfigured ? "booting" : "signed-out"
   );
@@ -71,6 +75,11 @@ export function useRemoteSync(
       .catch((error) => {
         console.error("Could not load the reference tables", error);
         if (!cancelled) {
+          setFailure(
+            whyLoadFailed(
+              error instanceof Error ? error : new Error(String(error))
+            )
+          );
           setPhase("broken");
         }
       });
@@ -212,6 +221,7 @@ export function useRemoteSync(
 
   return {
     email: session?.user.email ?? null,
+    failure,
     guest: isGuest,
     phase,
     saveFailed,

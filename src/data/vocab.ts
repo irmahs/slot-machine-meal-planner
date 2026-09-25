@@ -88,19 +88,19 @@ export interface Vocab {
 
 export const EMPTY_VOCAB: Vocab = {
   categories: [],
-  proteinKinds: [],
-  vegetableKinds: [],
-  starchKinds: [],
-  dishStyles: [],
-  units: [],
-  methods: [],
   dietRules: [],
+  dishStyles: [],
+  methods: [],
+  proteinKinds: [],
+  starchKinds: [],
+  units: [],
+  vegetableKinds: [],
 };
 
 /** The reference tables as PostgREST returns them, keyed by table name. */
 export type RawVocab = Record<
   (typeof TABLES)[number],
-  Array<Record<string, unknown>>
+  Record<string, unknown>[]
 >;
 
 const TABLES = [
@@ -114,9 +114,43 @@ const TABLES = [
   "meal_planner_diet_rules",
 ] as const;
 
+/**
+ * Why the reference tables could not be read.
+ *
+ * `missing`     — the project answered but the tables are not there: the migrations have not been applied
+ * `refused`     — the project answered and turned the key or the role away
+ * `unreachable` — no answer at all
+ */
+export type LoadFailure = "missing" | "refused" | "unreachable";
+
+/** What `loadVocab` rejects with: a PostgrestError, which is an Error with a code. */
+export interface LoadError {
+  code?: string;
+  message: string;
+}
+
+/** Sorts an error from `loadVocab` by the PostgREST or Postgres code it carries. */
+export function whyLoadFailed({ code = "", message }: LoadError): LoadFailure {
+  // PGRST205: not in PostgREST's schema cache. 42P01: undefined_table.
+  if (code === "PGRST205" || code === "42P01") {
+    return "missing";
+  }
+  // 42501: insufficient_privilege. PGRST30x: the JWT, i.e. the anon key.
+  if (
+    code === "42501" ||
+    code.startsWith("PGRST30") ||
+    /api key|jwt/iu.test(message)
+  ) {
+    return "refused";
+  }
+  return "unreachable";
+}
+
 /** Reads every reference table in parallel. Readable without signing in. */
 export async function loadVocab(): Promise<Vocab> {
-  if (!supabase) throw new Error("Supabase is not configured");
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
   const db = supabase;
   const results = await Promise.all(
     TABLES.map((table) =>
@@ -128,8 +162,13 @@ export async function loadVocab(): Promise<Vocab> {
   );
   const raw = {} as RawVocab;
   results.forEach((result, i) => {
-    if (result.error) throw result.error;
-    raw[TABLES[i]] = (result.data ?? []) as Array<Record<string, unknown>>;
+    if (result.error) {
+      // PostgREST hands back the parsed body, not an Error: keep its code on a real one.
+      throw Object.assign(new Error(result.error.message), {
+        code: result.error.code,
+      });
+    }
+    raw[TABLES[i]] = (result.data ?? []) as Record<string, unknown>[];
   });
   return toVocab(raw);
 }
@@ -149,6 +188,26 @@ export function toVocab(raw: RawVocab): Vocab {
         position: r.position as number,
       }))
       .sort((a, b) => a.position - b.position),
+    dietRules: rows("meal_planner_diet_rules").map((r) => ({
+      code: r.code as string,
+      excludesDiets: (r.excludes_diets as string[]) ?? [],
+      excludesRedMeat: r.excludes_red_meat as boolean,
+      id: r.id as number,
+      label: r.label as string,
+      requiresGlutenFree: r.requires_gluten_free as boolean,
+    })),
+    dishStyles: rows("meal_planner_dish_styles").map((r) => ({
+      code: r.code as string,
+      id: r.id as number,
+      label: r.label as string,
+      template: r.name_template as string,
+    })),
+    methods: rows("meal_planner_cooking_methods").map((r) => ({
+      code: r.code as string,
+      id: r.id as number,
+      label: r.label as string,
+      phrase: r.phrase as string,
+    })),
     proteinKinds: rows("meal_planner_protein_kinds").map((r) => ({
       code: r.code as string,
       diet: r.diet as string,
@@ -156,13 +215,6 @@ export function toVocab(raw: RawVocab): Vocab {
       id: r.id as number,
       label: r.label as string,
       redMeat: r.is_red_meat as boolean,
-    })),
-    vegetableKinds: rows("meal_planner_vegetable_kinds").map((r) => ({
-      code: r.code as string,
-      examples: r.examples as string,
-      id: r.id as number,
-      label: r.label as string,
-      word: r.cooking_word as string,
     })),
     starchKinds: rows("meal_planner_starch_kinds").map((r) => ({
       code: r.code as string,
@@ -172,12 +224,6 @@ export function toVocab(raw: RawVocab): Vocab {
       label: r.label as string,
       styleId: r.id_dish_style as number,
     })),
-    dishStyles: rows("meal_planner_dish_styles").map((r) => ({
-      code: r.code as string,
-      id: r.id as number,
-      label: r.label as string,
-      template: r.name_template as string,
-    })),
     units: rows("meal_planner_units").map((r) => ({
       code: r.code as string,
       id: r.id as number,
@@ -185,19 +231,12 @@ export function toVocab(raw: RawVocab): Vocab {
       isDefault: r.is_default as boolean,
       label: r.label as string,
     })),
-    methods: rows("meal_planner_cooking_methods").map((r) => ({
+    vegetableKinds: rows("meal_planner_vegetable_kinds").map((r) => ({
       code: r.code as string,
+      examples: r.examples as string,
       id: r.id as number,
       label: r.label as string,
-      phrase: r.phrase as string,
-    })),
-    dietRules: rows("meal_planner_diet_rules").map((r) => ({
-      code: r.code as string,
-      excludesDiets: (r.excludes_diets as string[]) ?? [],
-      excludesRedMeat: r.excludes_red_meat as boolean,
-      id: r.id as number,
-      label: r.label as string,
-      requiresGlutenFree: r.requires_gluten_free as boolean,
+      word: r.cooking_word as string,
     })),
   };
 }

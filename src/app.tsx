@@ -47,7 +47,7 @@ export default function App() {
     undefined,
     createInitialState
   );
-  const { phase, email, guest, saveFailed, signOut, startGuest } =
+  const { phase, email, failure, guest, saveFailed, signOut, startGuest } =
     useRemoteSync(state, dispatch);
   const timers = useRef<number[]>([]);
 
@@ -116,7 +116,7 @@ export default function App() {
   }, [state.screen, spin]);
 
   if (phase === "broken") {
-    return <SignIn onGuest={startGuest} unavailable />;
+    return <SignIn onGuest={startGuest} failure={failure ?? "unreachable"} />;
   }
   if (phase === "signed-out") {
     return <SignIn onGuest={startGuest} />;
@@ -209,7 +209,7 @@ export default function App() {
             <button
               type="button"
               className="soon-pill"
-              onClick={() => dispatch({ type: "screen/go", screen: "pantry" })}
+              onClick={() => dispatch({ screen: "pantry", type: "screen/go" })}
             >
               {expiring} going off soon
             </button>
@@ -217,7 +217,7 @@ export default function App() {
             <button
               type="button"
               className="soon-pill"
-              onClick={() => dispatch({ type: "screen/go", screen: "pantry" })}
+              onClick={() => dispatch({ screen: "pantry", type: "screen/go" })}
             >
               {emptyReels(reels, v).length === v.categories.length
                 ? "Nothing stocked"
