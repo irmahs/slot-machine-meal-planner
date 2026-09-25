@@ -1,176 +1,363 @@
-import { describe, expect, it } from 'vitest';
-import type { PantryItem } from '../data/model';
-import { addDaysISO } from '../lib/dates';
+import { describe, expect, it } from "vitest";
+
+import type { Ingredient, PantryItem } from "../data/model";
+import { formatQuantity, toVocab } from "../data/vocab";
+import type { RawVocab } from "../data/vocab";
+import { addDaysISO } from "../lib/dates";
+import raw from "../test/vocab.json";
 import {
+  allowed,
   canSpin,
+  chooseMethods,
   dishName,
   emptyReels,
-  paylineIndex,
+  fillTemplate,
+  ingredientOf,
+  paylineOf,
   pickIndex,
   planSpin,
   reelsFrom,
-  settleIdx,
+  settledIdx,
+  styleOf,
   weightOf,
-  type PickContext,
-  type Triple,
-} from './reel';
+} from "./reel";
+import type { PickContext, Triple } from "./reel";
 
-const item = (
+// The vocabulary exactly as the migration seeds it — see scripts/vocab-fixture.sh.
+const vocab = toVocab(raw as RawVocab);
+const rule = (code: string) => vocab.dietRules.filter((r) => r.code === code);
+
+const ing = (
   name: string,
-  category: PantryItem['category'],
-  days: number,
-  qty = 1,
-  unit: PantryItem['unit'] = 'piece',
-): PantryItem => ({ name, category, expiresOn: addDaysISO(days), qty, unit });
+  category: Ingredient["category"],
+  kind: string,
+  extra: Partial<Ingredient> = {}
+): Ingredient => ({
+  category,
+  glutenFree: null,
+  kind,
+  methods: [],
+  name,
+  shortName: null,
+  ...extra,
+});
+
+const CATALOGUE: Ingredient[] = [
+  ing("Chicken Thighs", "protein", "poultry", {
+    methods: ["air_fry", "bake"],
+    shortName: "Chicken",
+  }),
+  ing("Firm Tofu", "protein", "plant", {
+    methods: ["pan_fry"],
+    shortName: "Tofu",
+  }),
+  ing("Ground Beef", "protein", "red", { shortName: "Beef" }),
+  ing("Salmon Fillet", "protein", "fish", { shortName: "Salmon" }),
+  ing("Broccoli", "vegetable", "brassica", { methods: ["roast"] }),
+  ing("Baby Spinach", "vegetable", "leafy", { shortName: "spinach" }),
+  ing("Jasmine Rice", "starch", "grain", {
+    glutenFree: true,
+    methods: ["steam"],
+    shortName: "Rice",
+  }),
+  ing("Orzo", "starch", "wholegrain", { glutenFree: false }),
+  ing("Corn Tortillas", "starch", "wraps", {
+    glutenFree: true,
+    shortName: "Tortilla",
+  }),
+  ing("Sweet Potato", "starch", "tuber", {
+    glutenFree: true,
+    methods: ["roast"],
+  }),
+];
+const named = (name: string) => ingredientOf(CATALOGUE, name);
+const stock = (name: string, days: number): PantryItem => ({
+  expiresOn: addDaysISO(days),
+  name,
+  qty: 1,
+  unit: "piece",
+});
 
 const PANTRY: PantryItem[] = [
-  item('Chicken Thighs', 'protein', 2, 600, 'g'),
-  item('Firm Tofu', 'protein', 6, 1, 'block'),
-  item('Eggs', 'protein', 40, 6),
-  item('Baby Spinach', 'fibre', 1, 1, 'bag'),
-  item('Zucchini', 'fibre', 3, 2),
-  item('Jasmine Rice', 'grain', 90, 1.5, 'kg'),
-  item('Corn Tortillas', 'grain', 8, 1, 'pack'),
+  stock("Chicken Thighs", 2),
+  stock("Firm Tofu", 6),
+  stock("Ground Beef", 40),
+  stock("Broccoli", 5),
+  stock("Baby Spinach", 1),
+  stock("Jasmine Rice", 90),
+  stock("Orzo", 8),
 ];
 
-const reels = reelsFrom(PANTRY);
-const ctx: PickContext = { reels, weighting: true };
+const reels = reelsFrom(PANTRY, CATALOGUE, vocab);
+const ctx: PickContext = {
+  catalogue: CATALOGUE,
+  rules: [],
+  vocab,
+  weighting: true,
+};
 
-describe('reels from the fridge', () => {
-  it('slices the pantry into one reel per category', () => {
-    expect(reels.map((list) => list.length)).toEqual([3, 2, 2]);
-    expect(reels[1].every((i) => i.category === 'fibre')).toBe(true);
+describe("the vocabulary the migration seeds", () => {
+  it("has three categories in reel order", () => {
+    expect(vocab.categories.map((c) => c.code)).toEqual([
+      "protein",
+      "vegetable",
+      "starch",
+    ]);
   });
 
-  it('puts the soonest to go off at the top of a column', () => {
-    expect(reels[0].map((i) => i.name)).toEqual(['Chicken Thighs', 'Firm Tofu', 'Eggs']);
+  it("gives every starch kind a dish style that exists", () => {
+    for (const kind of vocab.starchKinds) {
+      expect(
+        vocab.dishStyles.some((s) => s.id === kind.styleId),
+        kind.code
+      ).toBe(true);
+    }
   });
 
-  it('holds nothing at all for an empty fridge', () => {
-    const none = reelsFrom([]);
-    expect(none.map((list) => list.length)).toEqual([0, 0, 0]);
-    expect(canSpin(none)).toBe(false);
-    expect(emptyReels(none)).toEqual(['protein', 'fibre', 'grain']);
+  it("only uses placeholders the app knows how to fill", () => {
+    const known = [
+      "method",
+      "protein",
+      "starch",
+      "starch_method",
+      "vegetable",
+      "vegetable_method",
+    ];
+    for (const style of vocab.dishStyles) {
+      const used = [...style.template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+      for (const key of used) {
+        expect(known, `${style.code}: {${key}}`).toContain(key);
+      }
+    }
   });
 
-  it('names the reel that is holding the draw up', () => {
-    const noGrain = reelsFrom(PANTRY.filter((i) => i.category !== 'grain'));
-    expect(emptyReels(noGrain)).toEqual(['grain']);
-    expect(canSpin(noGrain)).toBe(false);
-    expect(canSpin(reels)).toBe(true);
-  });
-});
-
-describe('payline', () => {
-  it('reads the middle visible cell, one past the strip offset', () => {
-    expect(paylineIndex(0, 6)).toBe(1);
-    expect(paylineIndex(5, 6)).toBe(0);
-    expect(paylineIndex(-1, 6)).toBe(0);
+  it("marks exactly one default unit", () => {
+    expect(vocab.units.filter((u) => u.isDefault)).toHaveLength(1);
   });
 
-  it('stays in range for an empty column', () => {
-    expect(paylineIndex(4, 0)).toBe(0);
-  });
-});
-
-describe('planSpin', () => {
-  const idx: Triple<number> = [0, 0, 0];
-
-  it('leaves every target sitting on the payline once the strip settles', () => {
-    const plan = planSpin(idx, [false, false, false], ctx);
-    const rest = settleIdx(plan.targets, reels);
-    plan.targets.forEach((target, k) => {
-      expect(paylineIndex(rest[k], reels[k].length)).toBe(target);
-    });
-  });
-
-  it('moves each unlocked reel forward by at least four turns', () => {
-    const plan = planSpin(idx, [false, false, false], ctx);
-    plan.idx.forEach((next, k) => {
-      expect(next - idx[k]).toBeGreaterThanOrEqual(4 * reels[k].length);
-    });
-  });
-
-  it('staggers the reels', () => {
-    const plan = planSpin(idx, [false, false, false], ctx);
-    expect(plan.durations).toEqual(['1.50s', '1.92s', '2.34s']);
-  });
-
-  it('holds a locked reel on whatever is already on its payline', () => {
-    const held: Triple<number> = [2, 0, 0];
-    const plan = planSpin(held, [true, false, false], ctx);
-    expect(plan.targets[0]).toBe(paylineIndex(2, reels[0].length));
-    expect(plan.idx[0]).toBe(2);
-    expect(plan.durations[0]).toBe('0s');
-  });
-
-  it('leaves an empty reel alone rather than dividing by nothing', () => {
-    const noFibre = reelsFrom(PANTRY.filter((i) => i.category !== 'fibre'));
-    const plan = planSpin(idx, [false, false, false], { reels: noFibre, weighting: true });
-    expect(plan.targets[1]).toBe(0);
-    expect(plan.durations[1]).toBe('0s');
-    expect(Number.isNaN(plan.idx[1])).toBe(false);
+  it("only excludes diets that protein kinds actually use", () => {
+    const diets = new Set(vocab.proteinKinds.map((k) => k.diet));
+    for (const r of vocab.dietRules) {
+      for (const d of r.excludesDiets)
+        expect(diets.has(d), `${r.code}: ${d}`).toBe(true);
+    }
   });
 });
 
-describe('weighting', () => {
-  it('favours what is closest to going off', () => {
-    expect(weightOf(item('x', 'protein', 2), true)).toBe(6);
-    expect(weightOf(item('x', 'protein', 4), true)).toBe(3);
-    expect(weightOf(item('x', 'protein', 6), true)).toBe(1.6);
-    expect(weightOf(item('x', 'protein', 40), true)).toBe(1);
+describe("reels come from the pantry", () => {
+  it("slices what is stocked by the category of its ingredient", () => {
+    expect(reels.map((r) => r.length)).toEqual([3, 2, 2]);
   });
 
-  it('treats everything alike when weighting is off', () => {
-    expect(weightOf(item('x', 'protein', 2), false)).toBe(1);
-    expect(weightOf(item('x', 'protein', 40), false)).toBe(1);
+  it("ignores an ingredient that is described but not stocked", () => {
+    expect(reels.flat().map((i) => i.name)).not.toContain("Salmon Fillet");
+  });
+
+  it("puts the soonest to go off at the top", () => {
+    expect(reels[0].map((i) => i.name)).toEqual([
+      "Chicken Thighs",
+      "Firm Tofu",
+      "Ground Beef",
+    ]);
+  });
+
+  it("cannot draw from an empty pantry, or before the vocabulary has loaded", () => {
+    const none = reelsFrom([], CATALOGUE, vocab);
+    expect(canSpin(none, vocab)).toBe(false);
+    expect(emptyReels(none, vocab)).toEqual(["protein", "vegetable", "starch"]);
+    expect(canSpin(reels, { ...vocab, categories: [] })).toBe(false);
   });
 });
 
-describe('pickIndex', () => {
-  it('always returns an index inside the reel', () => {
-    for (let r = 0; r < 200; r += 1) {
-      const i = pickIndex(reels[0], true, () => r / 200);
+describe("diet rules are rows", () => {
+  it("keeps meat and fish off for Vegetarian", () => {
+    expect(allowed(named("Firm Tofu"), rule("vegetarian"), vocab)).toBe(true);
+    expect(allowed(named("Chicken Thighs"), rule("vegetarian"), vocab)).toBe(
+      false
+    );
+    expect(allowed(named("Salmon Fillet"), rule("vegetarian"), vocab)).toBe(
+      false
+    );
+  });
+
+  it("keeps fish but drops meat for Pescatarian", () => {
+    expect(allowed(named("Salmon Fillet"), rule("pescatarian"), vocab)).toBe(
+      true
+    );
+    expect(allowed(named("Chicken Thighs"), rule("pescatarian"), vocab)).toBe(
+      false
+    );
+  });
+
+  it("drops red meat by its kind", () => {
+    expect(allowed(named("Ground Beef"), rule("no_red_meat"), vocab)).toBe(
+      false
+    );
+    expect(allowed(named("Chicken Thighs"), rule("no_red_meat"), vocab)).toBe(
+      true
+    );
+  });
+
+  it("goes by the ingredient answer for gluten", () => {
+    expect(allowed(named("Jasmine Rice"), rule("gluten_free"), vocab)).toBe(
+      true
+    );
+    expect(allowed(named("Orzo"), rule("gluten_free"), vocab)).toBe(false);
+  });
+
+  it("applies a rule it has never heard of, from its columns alone", () => {
+    const noFish = [
+      {
+        code: "x",
+        excludesDiets: ["fish"],
+        excludesRedMeat: false,
+        id: 99,
+        label: "x",
+        requiresGlutenFree: false,
+      },
+    ];
+    expect(allowed(named("Salmon Fillet"), noFish, vocab)).toBe(false);
+    expect(allowed(named("Chicken Thighs"), noFish, vocab)).toBe(true);
+  });
+});
+
+describe("weighting and the spin", () => {
+  it("favours what is closest to going off", () => {
+    expect([2, 4, 6, 40].map((d) => weightOf(stock("x", d), true))).toEqual([
+      6, 3, 1.6, 1,
+    ]);
+    expect(weightOf(stock("x", 2), false)).toBe(1);
+  });
+
+  it("always lands inside the reel", () => {
+    for (let r = 0; r < 100; r += 1) {
+      const i = pickIndex(reels[0], ctx, () => r / 100);
       expect(i).toBeGreaterThanOrEqual(0);
       expect(i).toBeLessThan(reels[0].length);
     }
   });
 
-  it('reports -1 for a reel with nothing on it', () => {
-    expect(pickIndex([], true)).toBe(-1);
-  });
-
-  it('leans towards the urgent item', () => {
-    let urgent = 0;
-    for (let r = 0; r < 600; r += 1) {
-      if (reels[0][pickIndex(reels[0], true)].name === 'Chicken Thighs') urgent += 1;
-    }
-    // Weights are 6 : 1.6 : 1, so the urgent one should take well over half the draws.
-    expect(urgent).toBeGreaterThan(300);
+  it("leaves every target on the payline once the strip settles", () => {
+    const plan = planSpin([0, 0, 0], [false, false, false], reels, ctx);
+    const rest = settledIdx(plan.target, reels);
+    plan.target.forEach((t, k) =>
+      expect(paylineOf(rest[k], reels[k].length)).toBe(t)
+    );
+    expect(plan.dur).toEqual(["1.50s", "1.92s", "2.34s"]);
   });
 });
 
-describe('dish naming', () => {
-  it('composes a name from the three picks alone', () => {
-    const name = dishName(['Chicken Thighs', 'Broccoli', 'Jasmine Rice']);
-    expect(name).toContain('Chicken Thighs');
-    expect(name).toContain('Broccoli');
-    expect(name).toContain('Jasmine Rice');
+describe("cooking methods come from the ticks", () => {
+  const picks = [
+    named("Chicken Thighs"),
+    named("Broccoli"),
+    named("Jasmine Rice"),
+  ] as Triple<Ingredient | undefined>;
+  const free: Triple<boolean> = [false, false, false];
+
+  it("picks only from what was ticked for each ingredient", () => {
+    for (let r = 0; r < 50; r += 1) {
+      const [p, v, s] = chooseMethods(picks, [], free, null);
+      expect(["air_fry", "bake"]).toContain(p);
+      expect(v).toBe("roast");
+      expect(s).toBe("steam");
+    }
   });
 
-  it('gives the same three picks the same name every time', () => {
-    const picks: Triple<string | null> = ['Eggs', 'Mushrooms', 'Orzo'];
-    expect(dishName(picks)).toBe(dishName(picks));
+  it("gives no method to an ingredient with nothing ticked", () => {
+    const plain = [
+      named("Ground Beef"),
+      named("Baby Spinach"),
+      named("Orzo"),
+    ] as Triple<Ingredient | undefined>;
+    expect(chooseMethods(plain, [], free, null)).toEqual([null, null, null]);
   });
 
-  it('reads sensibly for ingredients it has never seen', () => {
-    const name = dishName(['Tempeh', 'Cavolo Nero', 'Freekeh']);
-    expect(name).toContain('Tempeh');
-    expect(name).toContain('Freekeh');
+  it("leaves out anything switched off in Cooking methods", () => {
+    for (let r = 0; r < 30; r += 1) {
+      expect(chooseMethods(picks, ["air_fry"], free, null)[0]).toBe("bake");
+    }
+    expect(chooseMethods(picks, ["air_fry", "bake"], free, null)[0]).toBeNull();
   });
 
-  it('falls back to what it has when a reel drew nothing', () => {
-    expect(dishName(['Eggs', null, 'Orzo'])).toBe('Eggs & Orzo');
-    expect(dishName([null, null, null])).toBe('Nothing drawn yet');
+  it("keeps the method of a held column", () => {
+    for (let r = 0; r < 30; r += 1) {
+      expect(
+        chooseMethods(picks, [], [true, false, false], ["bake", null, null])[0]
+      ).toBe("bake");
+    }
+  });
+});
+
+describe("dish names are filled from the templates table", () => {
+  const picks = (p: string, v: string, s: string) =>
+    [named(p), named(v), named(s)] as Triple<Ingredient | undefined>;
+
+  it("uses the protein method in front and the vegetable method behind", () => {
+    expect(
+      dishName(
+        picks("Chicken Thighs", "Broccoli", "Jasmine Rice"),
+        ["air_fry", "roast", null],
+        vocab
+      )
+    ).toBe("Air-fried Chicken Rice Bowl with roasted broccoli");
+  });
+
+  it("falls back to the vegetable kind word when nothing is ticked for it", () => {
+    expect(
+      dishName(
+        picks("Chicken Thighs", "Baby Spinach", "Jasmine Rice"),
+        ["bake", null, null],
+        vocab
+      )
+    ).toBe("Baked Chicken Rice Bowl with wilted spinach");
+  });
+
+  it("drops the participle cleanly when the protein has no method", () => {
+    expect(
+      dishName(
+        picks("Ground Beef", "Broccoli", "Jasmine Rice"),
+        [null, null, null],
+        vocab
+      )
+    ).toBe("Beef Rice Bowl with charred broccoli");
+  });
+
+  it("takes the shape from the starch kind", () => {
+    expect(styleOf(named("Corn Tortillas"), vocab)?.label).toBe("Tacos");
+    expect(
+      dishName(
+        picks("Firm Tofu", "Broccoli", "Corn Tortillas"),
+        ["pan_fry", null, null],
+        vocab
+      )
+    ).toBe("Pan-fried Tofu Tacos with charred broccoli");
+  });
+
+  it("can use the starch method where the template asks for it", () => {
+    expect(
+      dishName(
+        picks("Chicken Thighs", "Broccoli", "Sweet Potato"),
+        ["bake", "roast", "roast"],
+        vocab
+      )
+    ).toBe("Baked Chicken & roasted Sweet Potato Tray with roasted broccoli");
+  });
+
+  it("fills a template it has never seen", () => {
+    expect(
+      fillTemplate("{method} {protein} over {starch}", {
+        protein: "Tofu",
+        starch: "Rice",
+      })
+    ).toBe("Tofu over Rice");
+    expect(fillTemplate("{unknown} soup", {})).toBe("Soup");
+  });
+});
+
+describe("quantities", () => {
+  it("reads a count unit as ×n because the units table says so", () => {
+    expect(formatQuantity(vocab, 8, "piece")).toBe("×8");
+    expect(formatQuantity(vocab, 600, "g")).toBe("600 g");
   });
 });

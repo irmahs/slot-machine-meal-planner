@@ -20,12 +20,14 @@ export function daysUntil(iso: string): number {
 
 export function dayLabel(iso: string): string {
   return iso === todayISO()
-    ? 'Tonight'
-    : new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
+    ? "Tonight"
+    : new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+        weekday: "short",
+      });
 }
 
 function toISO(date: Date): string {
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;
 }
